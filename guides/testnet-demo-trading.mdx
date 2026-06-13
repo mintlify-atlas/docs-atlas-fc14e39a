@@ -1,0 +1,228 @@
+---
+title: "Test with Testnet and Demo Trading"
+sidebarTitle: "Testnet & Demo"
+description: "Switch between Binance testnet and demo trading environments using a single constructor option. Understand when to use each environment for strategy testing."
+---
+
+Binance provides two separate testing environments: Demo Trading and Testnet. Both let you run code against a non-production Binance API without risking real funds, but they serve different purposes and behave very differently in practice. Choosing the right environment for your use case — and understanding why they are not interchangeable — is one of the most important decisions when building a Binance integration.
+
+## Demo Trading vs Testnet
+
+<CardGroup cols={2}>
+  <Card title="Demo Trading" icon="chart-line">
+    Uses **real market data** with simulated order execution. Prices, order books, and market conditions match what you would see on the live exchange. This is the recommended environment for testing trading strategies, as it provides a realistic picture of how a strategy would perform under real market conditions.
+  </Card>
+  <Card title="Testnet" icon="flask">
+    A **separate environment** with synthetic market data generated independently of the live exchange. The orderbook depth, volatility, and price behaviour are very different from real markets. Best suited for testing API connectivity, request signing, and endpoint integration — not strategy performance.
+  </Card>
+</CardGroup>
+
+<Warning>
+  Do not use testnet market data to validate trading strategies. Testnet prices and volumes bear little resemblance to live market conditions and will produce misleading results. Use demo trading for strategy testing.
+</Warning>
+
+## Which Clients Support Each Environment
+
+<Tabs>
+  <Tab title="Demo Trading">
+    Demo trading is supported by the following REST clients and the WebSocket client:
+
+    | Client | Demo endpoint |
+    |---|---|
+    | `MainClient` (Spot) | `https://demo-api.binance.com` |
+    | `USDMClient` (USD-M Futures) | `https://demo-fapi.binance.com` |
+    | `CoinMClient` (COIN-M Futures) | `https://demo-dapi.binance.com` |
+    | `WebsocketClient` | Demo WebSocket endpoints |
+
+    <Note>
+      `PortfolioClient` and the Vanilla Options client do not have demo trading endpoints. If demo trading is not available for a given product group, the SDK will throw an error when the client is instantiated with `demoTrading: true`.
+    </Note>
+  </Tab>
+  <Tab title="Testnet">
+    Testnet is supported by:
+
+    | Client | Testnet endpoint |
+    |---|---|
+    | `MainClient` (Spot) | `https://testnet.binance.vision` |
+    | `USDMClient` (USD-M Futures) | `https://testnet.binancefuture.com` |
+    | `CoinMClient` (COIN-M Futures) | `https://testnet.binancefuture.com` |
+    | `WebsocketClient` | Testnet WebSocket endpoints |
+
+    Vanilla Options testnet is also available at `https://testnet.binanceops.com`.
+  </Tab>
+</Tabs>
+
+## Obtaining Test Credentials
+
+Live, demo trading, and testnet API keys are **not interchangeable** — each environment requires its own set of credentials:
+
+<CardGroup cols={3}>
+  <Card title="Spot Testnet" icon="key" href="https://testnet.binance.vision/">
+    Create Spot testnet API keys at `testnet.binance.vision`. Separate from live keys.
+  </Card>
+  <Card title="Futures Testnet" icon="key" href="https://testnet.binancefuture.com/">
+    Create Futures testnet keys at `testnet.binancefuture.com`. Works for both USD-M and COIN-M testnet clients.
+  </Card>
+  <Card title="Demo Trading" icon="key" href="https://demo.binance.com/">
+    Create demo trading keys at `demo.binance.com`. Separate from live and testnet keys.
+  </Card>
+</CardGroup>
+
+## Enabling Demo Trading
+
+Set `demoTrading: true` in the client constructor. No other changes are required — the SDK automatically routes requests to the correct demo endpoint for that client type.
+
+<CodeGroup>
+```typescript Spot Demo (MainClient)
+import { MainClient } from 'binance';
+
+const client = new MainClient({
+  api_key: process.env.BINANCE_DEMO_API_KEY,
+  api_secret: process.env.BINANCE_DEMO_API_SECRET,
+  beautifyResponses: true,
+  /**
+   * Demo trading uses real market data with simulated trading.
+   * Perfect for testing strategies without risk.
+   */
+  demoTrading: true,
+});
+
+async function start() {
+  try {
+    // Get account information on demo trading
+    const accountInfo = await client.getAccountInformation();
+    console.log('Demo account info: ', accountInfo);
+
+    // Place a test order on demo trading
+    const result = await client.submitNewOrder({
+      side: 'BUY',
+      symbol: 'BTCUSDT',
+      type: 'MARKET',
+      quantity: 0.001,
+    });
+
+    console.log('Demo market buy result: ', result);
+  } catch (e) {
+    console.error('Demo trading request failed: ', e);
+  }
+}
+
+start();
+```
+
+```typescript USD-M Futures Demo (USDMClient)
+import { USDMClient } from 'binance';
+
+const client = new USDMClient({
+  api_key: process.env.BINANCE_DEMO_API_KEY,
+  api_secret: process.env.BINANCE_DEMO_API_SECRET,
+  beautifyResponses: true,
+  demoTrading: true,
+});
+
+async function start() {
+  try {
+    const account = await client.getAccountInformation();
+    console.log('Demo futures account can trade:', account.canTrade);
+
+    const result = await client.submitNewOrder({
+      symbol: 'BTCUSDT',
+      side: 'SELL',
+      type: 'MARKET',
+      quantity: 0.001,
+    });
+
+    console.log('Demo market sell result: ', result);
+  } catch (e) {
+    console.error('Demo futures request failed: ', e);
+  }
+}
+
+start();
+```
+</CodeGroup>
+
+## Enabling Testnet
+
+Set `testnet: true` in the client constructor. The SDK swaps the base URL to the appropriate testnet endpoint automatically.
+
+```typescript
+import { USDMClient } from 'binance';
+
+const client = new USDMClient({
+  api_key: process.env.BINANCE_TESTNET_API_KEY,
+  api_secret: process.env.BINANCE_TESTNET_API_SECRET,
+  beautifyResponses: true,
+  /**
+   * Note: testnet is NOT a good place to test strategy performance.
+   *
+   * For more information and guidance, refer to:
+   * https://github.com/tiagosiebler/awesome-crypto-examples/wiki/CEX-Testnets
+   */
+  testnet: true,
+});
+
+async function start() {
+  try {
+    const result = await client.submitNewOrder({
+      side: 'SELL',
+      symbol: 'BTCUSDT',
+      type: 'MARKET',
+      quantity: 0.001,
+    });
+
+    console.log('Testnet market sell result: ', result);
+  } catch (e) {
+    console.error('Testnet request failed: ', e);
+  }
+}
+
+start();
+```
+
+## WebSocket Demo and Testnet
+
+The same `demoTrading` and `testnet` flags work on `WebsocketClient`. The SDK routes WebSocket connections to the appropriate environment endpoint automatically:
+
+```typescript
+import { WebsocketClient } from 'binance';
+
+// Demo trading WebSocket
+const demoWs = new WebsocketClient({
+  api_key: process.env.BINANCE_DEMO_API_KEY,
+  api_secret: process.env.BINANCE_DEMO_API_SECRET,
+  beautify: true,
+  demoTrading: true,
+});
+
+demoWs.on('formattedUserDataMessage', (data) => {
+  console.log('Demo account event:', data);
+});
+
+demoWs.on('exception', console.error);
+demoWs.on('reconnecting', ({ wsKey }) => console.warn('Reconnecting:', wsKey));
+demoWs.on('reconnected', ({ wsKey }) => console.info('Reconnected:', wsKey));
+
+await demoWs.subscribeUsdFuturesUserDataStream();
+```
+
+<Warning>
+  Never set both `demoTrading: true` and `testnet: true` on the same client instance. These are mutually exclusive environments. If both are set, `demoTrading` takes precedence based on the URL resolution logic.
+</Warning>
+
+## Summary
+
+<AccordionGroup>
+  <Accordion title="When should I use demo trading?">
+    Use demo trading whenever you want to evaluate how a strategy behaves in realistic market conditions. Because demo trading uses live orderbook data and real prices, the fill simulation is representative of what would happen on the live exchange. It is also the best environment for user acceptance testing of your integration before going live.
+  </Accordion>
+  <Accordion title="When should I use testnet?">
+    Use testnet when you need to verify that your API integration is wired correctly — that requests are being signed, that you can authenticate, and that endpoints respond as expected. Testnet is not useful for evaluating strategy performance because its market data does not reflect real-world conditions.
+  </Accordion>
+  <Accordion title="Do I need different API keys for each environment?">
+    Yes. Live, demo trading, and testnet credentials are completely separate. Never use your live API keys in demo or testnet environments, and never use testnet or demo keys in production.
+  </Accordion>
+  <Accordion title="Can I switch environments at runtime?">
+    No. The environment is set at construction time via the `demoTrading` or `testnet` constructor option. To switch environments, create a new client instance with the desired option. Store your different API keys as separate environment variables and instantiate the appropriate client based on your deployment configuration.
+  </Accordion>
+</AccordionGroup>

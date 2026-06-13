@@ -1,47 +1,438 @@
 ---
-title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+title: "Get Started with the Binance SDK"
+sidebarTitle: "Quickstart"
+description: "Install the binance npm package, create your first REST client, and make a live API call to Binance in under 5 minutes."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
-
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
-
-## Prerequisites
-
-Before you begin, you must have:
-
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
-
-## Get started
+The `binance` SDK is designed to get you to a working integration as quickly as possible. Public market data requires no API keys at all — you can make your first live call immediately after installation. This guide walks from install through a public REST call, an authenticated private call, and a live WebSocket stream subscription.
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
 
-    ```bash
-    npm install your-package
-    ```
-  </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
+### Install the package
 
-    ```bash
-    your-cli init
-    ```
-  </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
+<CodeGroup>
 
-    ```bash
-    your-cli start
+```bash npm
+npm install binance
+```
+
+```bash yarn
+yarn add binance
+```
+
+```bash pnpm
+pnpm install binance
+```
+
+</CodeGroup>
+
+The package ships TypeScript declarations, an ESM build, a CommonJS build, and a pre-built browser bundle. No separate `@types` package is required.
+
+### Make your first public REST call
+
+The `MainClient` covers Spot, Margin, Wallet, and many other APIs under Binance's main REST API family. Public market data endpoints work without any credentials.
+
+<Tabs>
+  <Tab title="TypeScript">
+    ```typescript
+    import { MainClient } from 'binance';
+
+    const client = new MainClient();
+
+    (async () => {
+      try {
+        // Fetch 24-hour ticker statistics for BTCUSDT
+        const ticker = await client.get24hrChangeStatistics({
+          symbol: 'BTCUSDT',
+        });
+        console.log('24hr ticker:', ticker);
+
+        // Fetch statistics for multiple symbols at once
+        const manyTickers = await client.get24hrChangeStatistics({
+          symbols: ['BTCUSDT', 'ETHUSDT'],
+        });
+        console.log('Multiple tickers:', manyTickers);
+      } catch (e) {
+        console.error('Request failed:', e);
+      }
+    })();
     ```
-  </Step>
-</Steps>
+  </Tab>
+  <Tab title="JavaScript">
+    ```javascript
+    const { MainClient } = require('binance');
+
+    const client = new MainClient();
+
+    (async () => {
+      try {
+        const ticker = await client.get24hrChangeStatistics({
+          symbol: 'BTCUSDT',
+        });
+        console.log('24hr ticker:', ticker);
+
+        const manyTickers = await client.get24hrChangeStatistics({
+          symbols: ['BTCUSDT', 'ETHUSDT'],
+        });
+        console.log('Multiple tickers:', manyTickers);
+      } catch (e) {
+        console.error('Request failed:', e);
+      }
+    })();
+    ```
+  </Tab>
+</Tabs>
 
 <Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
-
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
+  You can also fetch all symbols at once by calling `client.get24hrChangeStatistics()` with no arguments.
 </Tip>
+
+### Create an authenticated client
+
+Private endpoints — account information, order placement, balances — require an API key and secret. Store credentials in environment variables and never hard-code them.
+
+```bash
+export BINANCE_API_KEY='your-api-key'
+export BINANCE_API_SECRET='your-api-secret'
+```
+
+<Tabs>
+  <Tab title="TypeScript">
+    ```typescript
+    import { MainClient } from 'binance';
+
+    const client = new MainClient({
+      api_key: process.env.BINANCE_API_KEY!,
+      api_secret: process.env.BINANCE_API_SECRET!,
+      // Optionally parse known float-strings to numbers in responses
+      beautifyResponses: true,
+    });
+    ```
+  </Tab>
+  <Tab title="JavaScript">
+    ```javascript
+    const { MainClient } = require('binance');
+
+    const client = new MainClient({
+      api_key: process.env.BINANCE_API_KEY,
+      api_secret: process.env.BINANCE_API_SECRET,
+      beautifyResponses: true,
+    });
+    ```
+  </Tab>
+</Tabs>
+
+The SDK automatically appends timestamps, computes HMAC/RSA/Ed25519 signatures, and adds the `X-MBX-APIKEY` header to every private request. You do not need to do any of this manually.
+
+### Read your account information
+
+With an authenticated client, you can query account balances and permissions:
+
+<Tabs>
+  <Tab title="TypeScript">
+    ```typescript
+    import { MainClient } from 'binance';
+
+    const client = new MainClient({
+      api_key: process.env.BINANCE_API_KEY!,
+      api_secret: process.env.BINANCE_API_SECRET!,
+      beautifyResponses: true,
+    });
+
+    (async () => {
+      try {
+        const account = await client.getAccountInformation();
+        console.log('Can trade:', account.canTrade);
+
+        const balances = await client.getBalances();
+        const usdtBalance = balances.find((b) => b.coin === 'USDT');
+        console.log('USDT available:', usdtBalance?.free);
+      } catch (e) {
+        console.error('Request failed:', e);
+      }
+    })();
+    ```
+  </Tab>
+  <Tab title="JavaScript">
+    ```javascript
+    const { MainClient } = require('binance');
+
+    const client = new MainClient({
+      api_key: process.env.BINANCE_API_KEY,
+      api_secret: process.env.BINANCE_API_SECRET,
+      beautifyResponses: true,
+    });
+
+    (async () => {
+      try {
+        const account = await client.getAccountInformation();
+        console.log('Can trade:', account.canTrade);
+
+        const balances = await client.getBalances();
+        const usdtBalance = balances.find((b) => b.coin === 'USDT');
+        console.log('USDT available:', usdtBalance?.free);
+      } catch (e) {
+        console.error('Request failed:', e);
+      }
+    })();
+    ```
+  </Tab>
+</Tabs>
+
+### Validate and place a Spot order
+
+Use `testNewOrder()` to validate a request against the matching engine without placing a live order. Switch to `submitNewOrder()` only when you're ready to trade.
+
+The example below mirrors the real example from the SDK's `examples/Rest/Spot/rest-spot-private-trade.ts` file: it checks available USDT balance, fetches the current price, calculates a buy amount, and validates the order request before submitting.
+
+<Tabs>
+  <Tab title="TypeScript">
+    ```typescript
+    import {
+      MainClient,
+      NewSpotOrderParams,
+      OrderResponseFull,
+      SymbolPrice,
+    } from 'binance';
+
+    const client = new MainClient({
+      api_key: process.env.BINANCE_API_KEY!,
+      api_secret: process.env.BINANCE_API_SECRET!,
+      beautifyResponses: true,
+    });
+
+    const symbol = 'BTCUSDT';
+    const assetDecimalPlaces = 4;
+
+    function trimToDecimalPlaces(number: number, precision: number): number {
+      const array: any[] = number.toString().split('.');
+      array.push(array.pop().substring(0, precision));
+      return parseFloat(array.join('.'));
+    }
+
+    (async () => {
+      try {
+        // Check available USDT balance
+        const balance = await client.getBalances();
+        const usdtBal = balance.find((b) => b.coin === 'USDT');
+        if (!usdtBal?.free) {
+          return console.error('No USDT balance available');
+        }
+
+        // Get the current BTC price
+        const btcTicker = (await client.getSymbolPriceTicker({
+          symbol,
+        })) as SymbolPrice;
+        const lastPrice = btcTicker?.price;
+        if (!lastPrice) return console.error('No price returned');
+
+        // Calculate buy quantity (50% of available USDT)
+        const buyAmountUsdt = Number(usdtBal.free) * 0.5;
+        const buyAmountBtc = trimToDecimalPlaces(
+          buyAmountUsdt / Number(lastPrice),
+          assetDecimalPlaces,
+        );
+
+        const orderRequest: NewSpotOrderParams = {
+          symbol,
+          side: 'BUY',
+          type: 'MARKET',
+          quantity: buyAmountBtc,
+          newOrderRespType: 'FULL',
+        };
+
+        // Validate without placing (remove testNewOrder to place a real order)
+        await client.testNewOrder(orderRequest);
+        console.log('Order validated successfully:', orderRequest);
+
+        // Uncomment to place the actual order:
+        // const result = await client.submitNewOrder(orderRequest) as OrderResponseFull;
+        // console.log('Order placed:', result);
+      } catch (e) {
+        console.error('Error:', e);
+      }
+    })();
+    ```
+  </Tab>
+  <Tab title="JavaScript">
+    ```javascript
+    const { MainClient } = require('binance');
+
+    const client = new MainClient({
+      api_key: process.env.BINANCE_API_KEY,
+      api_secret: process.env.BINANCE_API_SECRET,
+      beautifyResponses: true,
+    });
+
+    (async () => {
+      try {
+        const balance = await client.getBalances();
+        const usdtBal = balance.find((b) => b.coin === 'USDT');
+        if (!usdtBal?.free) return console.error('No USDT balance');
+
+        const btcTicker = await client.getSymbolPriceTicker({ symbol: 'BTCUSDT' });
+        const lastPrice = btcTicker?.price;
+        if (!lastPrice) return console.error('No price returned');
+
+        const buyAmountBtc = parseFloat(
+          ((Number(usdtBal.free) * 0.5) / Number(lastPrice)).toFixed(4),
+        );
+
+        const orderRequest = {
+          symbol: 'BTCUSDT',
+          side: 'BUY',
+          type: 'MARKET',
+          quantity: buyAmountBtc,
+          newOrderRespType: 'FULL',
+        };
+
+        await client.testNewOrder(orderRequest);
+        console.log('Order validated:', orderRequest);
+
+        // Uncomment to place a real order:
+        // const result = await client.submitNewOrder(orderRequest);
+        // console.log('Order placed:', result);
+      } catch (e) {
+        console.error('Error:', e);
+      }
+    })();
+    ```
+  </Tab>
+</Tabs>
+
+<Warning>
+  `submitNewOrder()` places a live order against real funds. Always test with `testNewOrder()` first and consider using `demoTrading: true` for strategy validation before going live.
+</Warning>
+
+### Subscribe to a WebSocket stream
+
+The `WebsocketClient` manages all WebSocket connections — heartbeats, reconnection, and resubscription are handled automatically. Listen for events via the `on()` API.
+
+<Tabs>
+  <Tab title="TypeScript">
+    ```typescript
+    import { WebsocketClient } from 'binance';
+
+    const wsClient = new WebsocketClient({
+      // Optional: enable beautified events via the 'formattedMessage' event
+      beautify: true,
+    });
+
+    // Notification when a connection is opened
+    wsClient.on('open', (data) => {
+      console.log('Connected:', data.wsKey, data.wsUrl);
+    });
+
+    // Raw streaming data
+    wsClient.on('message', (data) => {
+      console.log('Raw message:', JSON.stringify(data, null, 2));
+    });
+
+    // Beautified data (when beautify: true)
+    wsClient.on('formattedMessage', (data) => {
+      console.log('Formatted message:', data);
+    });
+
+    // Reconnection events — use 'reconnected' to reconcile state via REST
+    wsClient.on('reconnecting', (data) => {
+      console.log('Reconnecting...', data?.wsKey);
+    });
+    wsClient.on('reconnected', (data) => {
+      console.log('Reconnected:', data?.wsKey);
+    });
+
+    // Always handle errors
+    wsClient.on('exception', (data) => {
+      console.error('WebSocket error:', data?.wsKey);
+    });
+
+    // Subscribe to Spot market topics (route to 'main')
+    wsClient.subscribe(
+      ['btcusdt@trade', 'btcusdt@bookTicker', 'btcusdt@depth10@100ms'],
+      'main',
+    );
+    ```
+  </Tab>
+  <Tab title="JavaScript">
+    ```javascript
+    const { WebsocketClient } = require('binance');
+
+    const wsClient = new WebsocketClient({ beautify: true });
+
+    wsClient.on('open', (data) => {
+      console.log('Connected:', data.wsKey, data.wsUrl);
+    });
+
+    wsClient.on('formattedMessage', (data) => {
+      console.log('Formatted message:', data);
+    });
+
+    wsClient.on('reconnecting', (data) => {
+      console.log('Reconnecting...', data?.wsKey);
+    });
+    wsClient.on('reconnected', (data) => {
+      console.log('Reconnected:', data?.wsKey);
+    });
+    wsClient.on('exception', (data) => {
+      console.error('WebSocket error:', data?.wsKey);
+    });
+
+    // Subscribe Spot topics to the 'main' connection family
+    wsClient.subscribe(
+      ['btcusdt@trade', 'btcusdt@bookTicker', 'btcusdt@depth10@100ms'],
+      'main',
+    );
+    ```
+  </Tab>
+</Tabs>
+
+The second argument to `subscribe()` is a `WS_KEY_MAP` value that routes the connection to the correct Binance endpoint family. Use `'main'` for Spot and Margin, `'usdm'` / `'usdmMarket'` for USD-M Futures, and `'coinm'` for COIN-M Futures.
+
+</Steps>
+
+## Which client should I use?
+
+<CardGroup cols={2}>
+  <Card title="MainClient" icon="chart-line">
+    Spot trading, margin, wallet, convert, earn, sub-accounts, and all `api/` or `sapi/` endpoints.
+  </Card>
+  <Card title="USDMClient" icon="chart-candlestick">
+    USD-M Futures. Any endpoint under the `fapi/` path.
+  </Card>
+  <Card title="CoinMClient" icon="bitcoin">
+    COIN-M Futures. Any endpoint under the `dapi/` path.
+  </Card>
+  <Card title="PortfolioClient" icon="briefcase">
+    Portfolio Margin accounts. Any endpoint under the `papi/` path.
+  </Card>
+  <Card title="WebsocketClient" icon="wifi">
+    Public market data streams and private user data streams (listen-key flow for Futures).
+  </Card>
+  <Card title="WebsocketAPIClient" icon="bolt">
+    Promise-based commands over Binance's WebSocket API — lower overhead than REST for order placement.
+  </Card>
+</CardGroup>
+
+## Testing environments
+
+Binance provides two testing environments that can be activated with a single constructor option:
+
+```typescript
+// Demo trading: real market data, simulated fills — best for strategy testing
+const demoClient = new USDMClient({
+  api_key: process.env.BINANCE_API_KEY!,
+  api_secret: process.env.BINANCE_API_SECRET!,
+  demoTrading: true,
+});
+
+// Testnet: separate credentials, simulated market data
+const testnetClient = new USDMClient({
+  api_key: process.env.BINANCE_TESTNET_KEY!,
+  api_secret: process.env.BINANCE_TESTNET_SECRET!,
+  testnet: true,
+});
+```
+
+<Note>
+  Demo trading and testnet credentials are separate from each other and from live credentials. Never mix them in the same client instance.
+</Note>

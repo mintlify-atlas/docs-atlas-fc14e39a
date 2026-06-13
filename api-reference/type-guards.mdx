@@ -1,0 +1,287 @@
+---
+title: "WebSocket Event Type Guards: Narrowing Union Types"
+sidebarTitle: "Type Guards"
+description: "Type guard functions exported from the binance package to narrow WebSocket event unions in TypeScript for formattedMessage event handlers."
+---
+
+When `beautify: true` is enabled, the `formattedMessage` and `formattedUserDataMessage` events emit values typed as the large union `WsFormattedMessage` or `WsUserDataEvents`. Each of those unions can represent dozens of different event shapes — klines, tickers, order updates, margin calls, and more. TypeScript's type guard functions let you narrow from a broad union down to a single specific interface, enabling full type inference and autocomplete for each event's fields.
+
+Without type guards you would need to manually inspect `data.eventType` and cast. With type guards, TypeScript narrows the type automatically in the `if` branch:
+
+```typescript
+wsClient.on('formattedMessage', (data) => {
+  // data: WsFormattedMessage (broad union)
+  if (isWsFormattedKline(data)) {
+    // data: WsMessageKlineFormatted (narrow — all kline fields available)
+    console.log(data.kline.close); // ✅ typed as number
+  }
+});
+```
+
+<Note>
+  All type guard functions are exported from the `'binance'` package root. Import them alongside your event types.
+</Note>
+
+---
+
+## How Type Guards Work
+
+Each guard function follows the TypeScript type predicate pattern `(data: WsFormattedMessage) => data is SpecificType`. When the function returns `true`, TypeScript narrows `data` to the specific interface inside the `if` block. All guards take a `WsFormattedMessage` (or `WsRawMessage` for raw guards) as input and perform a lightweight runtime check — typically checking `Array.isArray(data)` and matching the `eventType` string.
+
+```typescript
+import {
+  isWsFormattedKline,
+  type WsFormattedMessage,
+  type WsMessageKlineFormatted,
+} from 'binance';
+
+function handleMessage(data: WsFormattedMessage) {
+  if (isWsFormattedKline(data)) {
+    // TypeScript now knows: data is WsMessageKlineFormatted
+    const { symbol, kline } = data;
+    console.log(symbol, kline.open, kline.close, kline.isFinal);
+  }
+}
+```
+
+---
+
+## Formatted Message Type Guards
+
+These guards operate on `WsFormattedMessage` — the type emitted by the `formattedMessage` event.
+
+### Market Data Guards
+
+| Function | Narrows To | Matches `eventType` |
+|---|---|---|
+| `isWsFormattedKline(data)` | `WsMessageKlineFormatted` | `'kline'` |
+| `isWsFormattedTrade(data)` | `WsMessageTradeFormatted` | `'trade'` |
+| `isWsAggTradeFormatted(data)` | `WsMessageAggTradeFormatted` | `'aggTrade'` |
+| `isWsFormatted24hrTicker(data)` | `WsMessage24hrTickerFormatted` | `'24hrTicker'` (single symbol) |
+| `isWsFormatted24hrTickerArray(data)` | `WsMessage24hrTickerFormatted[]` | Array of `'24hrTicker'` events |
+| `isWsFormattedRollingWindowTickerArray(data)` | `WsMessage24hrTickerFormatted[]` | Array of rolling window ticker events (`'1hTicker'`, `'4hTicker'`, `'1dTicker'`) |
+| `isWsFormattedMarkPriceUpdateEvent(data)` | `WsMessageMarkPriceEventFormatted` | `'markPriceUpdate'` (single symbol) |
+| `isWsFormattedMarkPriceUpdateArray(data)` | `WsMessageMarkPriceEventFormatted[]` | Array of `'markPriceUpdate'` or `'markPrice'` events |
+| `isWsFormattedForceOrder(data)` | `WsMessageForceOrderFormatted` | `'forceOrder'` (liquidation) |
+| `isWsPartialBookDepthEventFormatted(data)` | `WsMessagePartialBookDepthEventFormatted` | `'partialBookDepth'` and depth snapshot variants |
+| `isWsDiffBookDepthEventFormatted(data)` | `WsMessageDiffBookDepthEventFormatted` | `'depthUpdate'` |
+
+<Note>
+  `isWsFormatted24hrTickerArray` is deprecated — the `!ticker@arr` stream was deprecated by Binance on 2025-11-14 and will be retired on 2026-03-26. Use `isWsFormatted24hrTicker` with per-symbol subscriptions, or `isWsFormattedRollingWindowTickerArray` with `!miniTicker@arr` instead.
+</Note>
+
+### Deprecated Mark Price Guard
+
+| Function | Status | Replacement |
+|---|---|---|
+| `isWsFormattedMarkPriceUpdate(data)` | `@deprecated` | Use `isWsFormattedMarkPriceUpdateEvent` or `isWsFormattedMarkPriceUpdateArray` |
+
+---
+
+## User Data Type Guards
+
+These guards narrow `WsFormattedMessage` or `WsUserDataEvents` to specific user data event shapes. They are most useful in `formattedUserDataMessage` handlers.
+
+### Top-Level User Data Guards
+
+| Function | Narrows To | Description |
+|---|---|---|
+| `isWsFormattedUserDataEvent(data)` | `WsUserDataEvents` | Matches any user data event — works for both listen-key and WS API user data streams. |
+| `isWsFormattedSpotUserDataEvent(data)` | `WsMessageSpotUserDataEventFormatted` | Matches any Spot/Margin user data event. |
+| `isWsFormattedFuturesUserDataEvent(data)` | `WsMessageFuturesUserDataEventFormatted` | Matches any USD-M Futures user data event. |
+
+### Spot User Data Guards
+
+| Function | Narrows To | `eventType` |
+|---|---|---|
+| `isWsFormattedSpotUserDataExecutionReport(data)` | `WsMessageSpotUserDataExecutionReportEventFormatted` | `'executionReport'` |
+| `isWsFormattedSpotOutboundAccountPosition(data)` | `WsMessageSpotOutboundAccountPositionFormatted` | `'outboundAccountPosition'` |
+| `isWsFormattedSpotBalanceUpdate(data)` | `WsMessageSpotBalanceUpdateFormatted` | `'balanceUpdate'` |
+| `isWsFormattedSpotUserDataListStatusEvent(data)` | `WsMessageSpotUserDataListStatusEventFormatted` | `'listStatus'` |
+
+### Futures User Data Guards
+
+| Function | Narrows To | `eventType` |
+|---|---|---|
+| `isWsFormattedFuturesUserDataAccountUpdate(data)` | `WsMessageFuturesUserDataAccountUpdateFormatted` | `'ACCOUNT_UPDATE'` |
+| `isWsFormattedFuturesUserDataTradeUpdateEvent(data)` | `WsMessageFuturesUserDataTradeUpdateEventFormatted` | `'ORDER_TRADE_UPDATE'` |
+| `isWsFormattedFuturesUserDataMarginCall(data)` | `WsMessageFuturesUserDataMarginCallFormatted` | `'MARGIN_CALL'` |
+| `isWsFormattedFuturesAlgoUpdateEvent(data)` | `WsMessageFuturesUserDataAlgoUpdateFormatted` | `'ALGO_UPDATE'` |
+| `isWsFormattedFuturesUserDataCondOrderTriggerRejectEvent(data)` | `WsMessageFuturesUserDataCondOrderTriggerRejectEventFormatted` | `'CONDITIONAL_ORDER_TRIGGER_REJECT'` |
+| `isWsFormattedFuturesUserDataAccountConfigUpdateEvent(data)` | `WsMessageFuturesUserDataAccountConfigUpdateEventFormatted` | `'ACCOUNT_CONFIG_UPDATE'` |
+| `isWsFormattedFuturesUserDataListenKeyExpired(data)` | `WsMessageFuturesUserDataListenKeyExpiredFormatted` | `'listenKeyExpired'` |
+
+---
+
+## Connection Context Guards
+
+These helpers check which product group a connection belongs to rather than narrowing a specific event type. Useful for routing logic when you have a single handler for multiple `wsKey` connections.
+
+| Function | Returns | Description |
+|---|---|---|
+| `isWsSpotConnection(data)` | `boolean` | Returns `true` if the event originated from a Spot/Margin connection. |
+| `isWsFuturesConnection(data)` | `boolean` | Returns `true` if the event originated from a USD-M or COIN-M Futures connection. |
+| `isWSAPIWsKey(wsKey)` | `wsKey is WSAPIWsKey` | Narrows a `WsKey` to `WSAPIWsKey` — confirms the key is a WS API connection, not a stream connection. |
+
+---
+
+## Raw Message Type Guards
+
+These guards operate on `WsRawMessage` — the unbeautified event type from the `message` event. They check Binance's abbreviated event fields (e.g. `data.e` instead of `data.eventType`).
+
+| Function | Narrows To | Checks |
+|---|---|---|
+| `isAll24hrMiniTickerRaw(data)` | `WsMessage24hrMiniTickerRaw[]` | Array where `data[0].e === '24hrMiniTicker'` |
+| `isAllRollingWindowTickerRaw(data)` | `WsMessageRollingWindowTickerRaw[]` | Array where `data[0].e` is `'1hTicker'`, `'4hTicker'`, or `'1dTicker'` |
+| `is24hrMiniTickerRaw(data)` | `WsMessage24hrMiniTickerRaw` | Single event: `data.e === '24hrMiniTicker'` |
+| `isKlineRaw(data)` | `WsMessageKlineRaw` | Single event: `data.e === 'kline'` |
+| `isOrderTradeUpdateRaw(data)` | `WsMessageFuturesUserDataOrderTradeUpdateEventRaw` | Single event: `data.e === 'ORDER_TRADE_UPDATE'` |
+| `isAlgoUpdateRaw(data)` | `WsMessageFuturesUserDataAlgoUpdateRaw` | Single event: `data.e === 'ALGO_UPDATE'` |
+| `isAccountConfigUpdateRaw(data)` | `WsMessageFuturesUserDataAccountConfigUpdateEventRaw` | Single event: `data.e === 'ACCOUNT_CONFIG_UPDATE'` |
+| `isAccountUpdateRaw(data)` | `WsMessageFuturesUserDataAccountUpdateRaw` | Single event: `data.e === 'ACCOUNT_UPDATE'` |
+| `isWsEventStreamTerminatedRaw(data)` | `WsEventStreamTerminatedRaw` | Single event: `data.e === 'eventStreamTerminated'` |
+
+---
+
+## Complete Example: `formattedMessage` Handler
+
+The following example demonstrates a production-style handler that uses multiple type guards to route every event to a typed sub-handler.
+
+```typescript
+import {
+  WebsocketClient,
+  isWsFormattedKline,
+  isWsAggTradeFormatted,
+  isWsFormattedTrade,
+  isWsFormatted24hrTicker,
+  isWsFormattedRollingWindowTickerArray,
+  isWsFormattedMarkPriceUpdateEvent,
+  isWsFormattedMarkPriceUpdateArray,
+  isWsFormattedForceOrder,
+  isWsPartialBookDepthEventFormatted,
+  isWsDiffBookDepthEventFormatted,
+  isWsFormattedUserDataEvent,
+  isWsFormattedSpotUserDataExecutionReport,
+  isWsFormattedSpotBalanceUpdate,
+  isWsFormattedFuturesUserDataAccountUpdate,
+  isWsFormattedFuturesUserDataTradeUpdateEvent,
+  isWsFormattedFuturesUserDataMarginCall,
+  isWsFormattedFuturesAlgoUpdateEvent,
+  isWsFormattedFuturesUserDataListenKeyExpired,
+} from 'binance';
+
+const wsClient = new WebsocketClient({
+  api_key: 'YOUR_API_KEY',
+  api_secret: 'YOUR_API_SECRET',
+  beautify: true,
+});
+
+wsClient.on('formattedMessage', (data) => {
+  // --- Market data events ---
+
+  if (isWsFormattedKline(data)) {
+    const { symbol, kline } = data;
+    console.log(`[Kline] ${symbol} ${kline.interval}: O=${kline.open} H=${kline.high} L=${kline.low} C=${kline.close} V=${kline.volume} final=${kline.final}`);
+    return;
+  }
+
+  if (isWsAggTradeFormatted(data)) {
+    console.log(`[AggTrade] ${data.symbol} price=${data.price} qty=${data.quantity} maker=${data.maker}`);
+    return;
+  }
+
+  if (isWsFormattedTrade(data)) {
+    console.log(`[Trade] ${data.symbol} price=${data.price} qty=${data.quantity}`);
+    return;
+  }
+
+  if (isWsFormatted24hrTicker(data)) {
+    console.log(`[24hrTicker] ${data.symbol} close=${data.closePrice} change=${data.priceChangePercent}%`);
+    return;
+  }
+
+  if (isWsFormattedRollingWindowTickerArray(data)) {
+    for (const ticker of data) {
+      console.log(`[RollingTicker] ${ticker.symbol} ${ticker.eventType}`);
+    }
+    return;
+  }
+
+  if (isWsFormattedMarkPriceUpdateEvent(data)) {
+    console.log(`[MarkPrice] ${data.symbol} markPrice=${data.markPrice} fundingRate=${data.fundingRate}`);
+    return;
+  }
+
+  if (isWsFormattedMarkPriceUpdateArray(data)) {
+    for (const mp of data) {
+      console.log(`[MarkPriceArray] ${mp.symbol} markPrice=${mp.markPrice}`);
+    }
+    return;
+  }
+
+  if (isWsFormattedForceOrder(data)) {
+    const { liquidationOrder } = data;
+    console.log(`[Liquidation] ${liquidationOrder.symbol} side=${liquidationOrder.side} qty=${liquidationOrder.originalQuantity}`);
+    return;
+  }
+
+  if (isWsPartialBookDepthEventFormatted(data)) {
+    console.log(`[PartialDepth] ${data.symbol} bids=${data.bids.length} asks=${data.asks.length}`);
+    return;
+  }
+
+  if (isWsDiffBookDepthEventFormatted(data)) {
+    console.log(`[DiffDepth] ${data.symbol} finalUpdateId=${data.finalUpdateId}`);
+    return;
+  }
+
+  // --- User data events (also available via formattedUserDataMessage) ---
+
+  if (isWsFormattedUserDataEvent(data)) {
+    if (isWsFormattedSpotUserDataExecutionReport(data)) {
+      console.log(`[Spot Order] ${data.symbol} ${data.side} ${data.orderStatus} orderId=${data.orderId}`);
+      return;
+    }
+
+    if (isWsFormattedSpotBalanceUpdate(data)) {
+      console.log(`[Balance Update] asset=${data.asset} delta=${data.balanceDelta}`);
+      return;
+    }
+
+    if (isWsFormattedFuturesUserDataAccountUpdate(data)) {
+      console.log(`[Futures Account Update] reason=${data.updateData.updateType}`);
+      return;
+    }
+
+    if (isWsFormattedFuturesUserDataTradeUpdateEvent(data)) {
+      const { order } = data;
+      console.log(`[Futures Order Update] ${order.symbol} status=${order.orderStatus} side=${order.side}`);
+      return;
+    }
+
+    if (isWsFormattedFuturesUserDataMarginCall(data)) {
+      console.log(`[Margin Call] positions at risk: ${data.positions.length}`);
+      return;
+    }
+
+    if (isWsFormattedFuturesAlgoUpdateEvent(data)) {
+      console.log(`[Algo Update] algoId=${data.algoOrder.algoId} status=${data.algoOrder.algoStatus}`);
+      return;
+    }
+
+    if (isWsFormattedFuturesUserDataListenKeyExpired(data)) {
+      console.warn('[Listen Key Expired] reconnecting user data stream...');
+      return;
+    }
+  }
+});
+
+// Subscribe to some streams
+wsClient.subscribeKlines('BTCUSDT', '1m', 'spot');
+wsClient.subscribeMarkPrice('BTCUSDT', 'usdm');
+wsClient.subscribeUsdFuturesUserDataStream();
+```
+
+<Tip>
+  For `formattedUserDataMessage`-only handlers, you can also use the guards directly without the top-level `isWsFormattedUserDataEvent` check — the user data event listener already pre-filters to `WsUserDataEvents`.
+</Tip>

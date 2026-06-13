@@ -1,0 +1,229 @@
+---
+title: "User Data Streams: Account & Order Updates"
+sidebarTitle: "User Data Streams"
+description: "Subscribe to private Binance user data streams to receive real-time account balance updates, order fills, and position changes across all product groups."
+---
+
+User data streams are private WebSocket connections that deliver real-time account-level events: order fills and updates, balance changes, position adjustments, and margin calls. Unlike public market data streams, they require authentication and are specific to your account. The `WebsocketClient` exposes a dedicated subscribe method for each product group, and once connected the SDK handles everything else — listenKey creation, periodic refresh, reconnection, and re-subscription.
+
+<Warning>
+  User data streams require API keys with at least **"Read"** permission. Never embed API keys directly in source code. Use environment variables (`process.env.BINANCE_API_KEY`) or a secrets manager. Always restrict your API keys to the minimum permissions and IP allowlist required for your use case. User data stream keys do **not** need trading or withdrawal permissions unless you are also using the same key for order placement.
+</Warning>
+
+## Available Stream Methods
+
+Each method opens a dedicated WebSocket connection for the corresponding product group's user data feed.
+
+| Method | Product | Events delivered |
+|---|---|---|
+| `subscribeSpotUserDataStream()` | Spot (deprecated for new integrations — prefer `WebsocketAPIClient.subscribeUserDataStream()`) | Account position updates, order execution reports, balance updates |
+| `subscribeCrossMarginUserDataStream()` | Cross Margin | Margin account updates, order fills, balance deltas |
+| `subscribeIsolatedMarginUserDataStream(symbol)` | Isolated Margin | Per-symbol isolated margin account and order events |
+| `subscribeUsdFuturesUserDataStream()` | USD-M Futures | Position changes, order updates, account balance updates, margin calls |
+| `subscribeCoinFuturesUserDataStream()` | COIN-M Futures | Position changes, order updates, account balance updates |
+| `subscribePortfolioMarginUserDataStream()` | Portfolio Margin | Portfolio margin account events |
+
+Corresponding `unsubscribe*` methods (`unsubscribeSpotUserDataStream()`, `unsubscribeUsdFuturesUserDataStream()`, etc.) cleanly close the dedicated connection and stop the listenKey keepalive cycle.
+
+## listenKey Lifecycle
+
+Internally, most user data streams are initiated using a listenKey — a session token that Binance issues via REST and that must be kept alive with periodic pings. The SDK manages this automatically:
+
+<Steps>
+  <Step title="Fetch listenKey">
+    On the first call to a subscribe method, the SDK uses the embedded REST client to obtain a listenKey for your account on the appropriate product.
+  </Step>
+  <Step title="Open the connection">
+    A dedicated WebSocket connection is opened using the listenKey URL. This connection is separate from any public market data connections.
+  </Step>
+  <Step title="Refresh every 30 minutes">
+    The SDK schedules automatic `PUT` keepalive calls on the listenKey to prevent it from expiring. For margin markets, set `keepMarginListenTokenRefreshed: true` (default) in `WebsocketAPIClient` to enable proactive refreshing.
+  </Step>
+  <Step title="Reconnect on drop">
+    If the connection is interrupted, the SDK fetches a fresh listenKey, reconnects, and emits `reconnected`. Listen to this event to re-sync your account state.
+  </Step>
+</Steps>
+
+<Note>
+  For **Spot** markets, Binance has deprecated the listenKey workflow in favour of the WebSocket API `userDataStream.subscribe` command. The recommended approach for new Spot integrations is to use `WebsocketAPIClient.subscribeUserDataStream(WS_KEY_MAP.mainWSAPI)` instead of `WebsocketClient.subscribeSpotUserDataStream()`.
+</Note>
+
+## Receiving Events
+
+User data events arrive on the same `WebsocketClient` event emitters as market data. Use the `formattedMessage` event (requires `beautify: true`) together with the provided type guards for clean event handling, or use the raw `message` event for unprocessed JSON.
+
+| Event | Description |
+|---|---|
+| `formattedMessage` | Beautified event with human-readable field names. Filter by type guard. |
+| `formattedUserDataMessage` | Alias dedicated to user data events (same data, separate emitter). |
+| `message` | Raw parsed JSON directly from Binance, with `wsKey` appended. |
+
+## Code Example: Subscribe and Handle User Data Events
+
+<Tabs>
+  <Tab title="TypeScript">
+    ```typescript
+    import {
+      WebsocketClient,
+      isWsFormattedSpotUserDataExecutionReport,
+      isWsFormattedSpotUserDataEvent,
+      isWsFormattedFuturesUserDataEvent,
+      isWsFormattedUserDataEvent,
+      WsUserDataEvents,
+    } from 'binance';
+
+    const wsClient = new WebsocketClient({
+      api_key: process.env.BINANCE_API_KEY,
+      api_secret: process.env.BINANCE_API_SECRET,
+      beautify: true,
+    });
+
+    function onUserDataEvent(data: WsUserDataEvents): void {
+      // Spot order execution report (fills, cancels, new orders)
+      if (isWsFormattedSpotUserDataExecutionReport(data)) {
+        console.log('Spot execution report:', {
+          symbol: data.symbol,
+          side: data.side,
+          orderStatus: data.orderStatus,
+          executedQuantity: data.executedQuantity,
+          cumulativeQuoteQuantity: data.cumulativeQuoteQuantity,
+        });
+        return;
+      }
+
+      // Any spot user data event (outboundAccountPosition, balanceUpdate)
+      if (isWsFormattedSpotUserDataEvent(data)) {
+        console.log('Spot user data event:', data);
+        return;
+      }
+
+      // Any USD-M or COIN-M futures user data event
+      if (isWsFormattedFuturesUserDataEvent(data)) {
+        console.log('Futures user data event:', data);
+        return;
+      }
+
+      console.log('Unhandled user data event:', data);
+    }
+
+    wsClient.on('formattedMessage', (data) => {
+      // Narrow to user data events using the general type guard
+      if (isWsFormattedUserDataEvent(data)) {
+        return onUserDataEvent(data);
+      }
+    });
+
+    wsClient.on('open', ({ wsKey }) => {
+      console.log('Stream opened:', wsKey);
+    });
+
+    wsClient.on('reconnected', ({ wsKey }) => {
+      if (wsKey?.toLowerCase().includes('userdata')) {
+        console.log('User data stream reconnected:', wsKey);
+        // Good time to reconcile balances and open orders via REST
+      }
+    });
+
+    wsClient.on('exception', (err) => {
+      console.error('Stream error:', err);
+    });
+
+    // USD-M Futures user data stream
+    wsClient.subscribeUsdFuturesUserDataStream();
+
+    // COIN-M Futures user data stream
+    wsClient.subscribeCoinFuturesUserDataStream();
+
+    // Portfolio Margin user data stream
+    wsClient.subscribePortfolioMarginUserDataStream();
+    ```
+  </Tab>
+  <Tab title="JavaScript">
+    ```javascript
+    const { WebsocketClient } = require('binance');
+
+    const wsClient = new WebsocketClient({
+      api_key: process.env.BINANCE_API_KEY,
+      api_secret: process.env.BINANCE_API_SECRET,
+      beautify: true,
+    });
+
+    wsClient.on('formattedMessage', (data) => {
+      console.log('Formatted user data event:', data);
+    });
+
+    wsClient.on('reconnected', ({ wsKey }) => {
+      console.log('Reconnected:', wsKey);
+    });
+
+    wsClient.on('exception', (err) => {
+      console.error('Stream error:', err);
+    });
+
+    // Futures user data streams
+    wsClient.subscribeUsdFuturesUserDataStream();
+    wsClient.subscribeCoinFuturesUserDataStream();
+    ```
+  </Tab>
+</Tabs>
+
+## Spot User Data via WebsocketAPIClient (Recommended)
+
+For Spot markets, use `WebsocketAPIClient.subscribeUserDataStream()` with the WebSocket API approach instead of the listenKey workflow:
+
+```typescript
+import { WebsocketAPIClient, WS_KEY_MAP } from 'binance';
+
+const wsApiClient = new WebsocketAPIClient({
+  api_key: process.env.BINANCE_API_KEY,
+  api_secret: process.env.BINANCE_API_SECRET,
+  beautify: true,
+});
+
+// Attach event handlers on the underlying WebsocketClient
+wsApiClient.getWSClient().on('formattedMessage', (data) => {
+  console.log('Event:', data);
+});
+
+// Subscribe to the Spot user data stream via the WebSocket API
+const response = await wsApiClient.subscribeUserDataStream(
+  WS_KEY_MAP.mainWSAPI,
+);
+console.log('Subscribed:', response);
+```
+
+By default, `WebsocketAPIClient` will automatically re-subscribe to the user data stream after any reconnection. Disable this behaviour by setting `resubscribeUserDataStreamAfterReconnect: false` in the constructor.
+
+## Unsubscribing
+
+Close any user data stream cleanly when you no longer need it:
+
+```typescript
+// Stop individual streams
+wsClient.unsubscribeUsdFuturesUserDataStream();
+wsClient.unsubscribeCoinFuturesUserDataStream();
+wsClient.unsubscribePortfolioMarginUserDataStream();
+
+// Or close all connections at once
+wsClient.closeAll();
+```
+
+## Reconnection Behaviour
+
+If a user data stream connection drops for any reason — network interruption, Binance-side timeout, or a stale listenKey — the SDK will:
+
+1. Emit the `reconnecting` event with the affected `wsKey`.
+2. Fetch a new listenKey via REST (if required by the stream type).
+3. Open a new WebSocket connection and re-establish the stream.
+4. Emit the `reconnected` event once the new connection is confirmed.
+
+During this window, events delivered by Binance will not reach your application. It is best practice to query the relevant REST API endpoints for balances, open orders, and positions whenever `reconnected` fires on a user data `wsKey`.
+
+```typescript
+wsClient.on('reconnected', async ({ wsKey }) => {
+  if (wsKey?.toLowerCase().includes('userdata')) {
+    // Sync missed state via REST
+    console.log('User data stream reconnected — syncing state...');
+  }
+});
+```

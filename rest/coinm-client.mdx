@@ -1,0 +1,287 @@
+---
+title: "CoinMClient: COIN-M Futures REST API"
+sidebarTitle: "CoinMClient"
+description: "CoinMClient provides access to Binance COIN-M Futures (dapi*.binance.com), with contracts settled in the underlying cryptocurrency rather than USDT."
+---
+
+`CoinMClient` is the dedicated REST client for Binance's COIN-M Futures market. Unlike USD-M Futures, COIN-M contracts are **settled and margined in the underlying cryptocurrency** — for example, a `BTCUSD_PERP` position uses BTC as collateral and is settled in BTC. The client targets the `dapi*.binance.com` subdomains and provides typed methods for market data, order management, position control, and account operations across all COIN-M Futures instruments.
+
+<Warning>
+  COIN-M Futures use the underlying asset (e.g. BTC, ETH) as both margin and settlement currency. Profits, losses, and fees are denominated in that asset. Ensure you understand coin-denominated P&L before trading.
+</Warning>
+
+## Installation
+
+<Steps>
+  <Step title="Install the package">
+    ```bash
+    npm install binance
+    ```
+  </Step>
+  <Step title="Import CoinMClient">
+    ```typescript
+    import { CoinMClient } from 'binance';
+    // CommonJS: const { CoinMClient } = require('binance');
+    ```
+  </Step>
+  <Step title="Instantiate the client">
+    ```typescript
+    const client = new CoinMClient({
+      api_key: process.env.BINANCE_API_KEY,
+      api_secret: process.env.BINANCE_API_SECRET,
+    });
+    ```
+  </Step>
+</Steps>
+
+## Constructor Options
+
+```typescript
+const client = new CoinMClient(
+  restClientOptions,  // RestClientOptions (optional)
+  requestOptions,     // AxiosRequestConfig (optional)
+);
+```
+
+<ParamField body="api_key" type="string">
+  Your Binance API key. Required for all authenticated (private) endpoints.
+</ParamField>
+
+<ParamField body="api_secret" type="string">
+  Your Binance API secret. Supports HMAC, RSA, and Ed25519 — key type is detected automatically.
+</ParamField>
+
+<ParamField body="beautifyResponses" type="boolean" default="false">
+  When `true`, numeric strings in responses are parsed into JavaScript numbers for well-known fields.
+</ParamField>
+
+<ParamField body="testnet" type="boolean" default="false">
+  Routes requests to `https://testnet.binancefuture.com` (COIN-M testnet). Uses simulated market data.
+</ParamField>
+
+## COIN-M vs USD-M Key Differences
+
+<Tabs>
+  <Tab title="COIN-M Futures">
+    - **Base URL:** `dapi*.binance.com`
+    - **Settlement currency:** Underlying asset (BTC, ETH, BNB, etc.)
+    - **Symbol format:** `BTCUSD_PERP`, `ETHUSD_PERP`, `BTCUSD_240329` (delivery)
+    - **Margin:** Denominated in the underlying coin
+    - **P&L:** Expressed in the underlying coin
+    - **Use case:** Naturally long the underlying coin; ideal for miners and holders who want leveraged exposure without selling their crypto
+  </Tab>
+  <Tab title="USD-M Futures">
+    - **Base URL:** `fapi*.binance.com`
+    - **Settlement currency:** USDT or BUSD
+    - **Symbol format:** `BTCUSDT`, `ETHUSDT`
+    - **Margin:** Denominated in USDT
+    - **P&L:** Expressed in USDT
+    - **Use case:** Stable-coin denominated P&L; simpler for accounting in fiat terms
+  </Tab>
+</Tabs>
+
+## Base URL
+
+| Mode | Base URL |
+|------|----------|
+| Production | `https://dapi.binance.com` |
+| Testnet | `https://testnet.binancefuture.com` |
+
+## Method Categories
+
+### Market Data
+
+Public endpoints — no API key required.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `testConnectivity()` | `GET dapi/v1/ping` | Test REST API connectivity |
+| `getExchangeInfo()` | `GET dapi/v1/exchangeInfo` | Exchange rules, filters, and symbol info |
+| `getOrderBook(params)` | `GET dapi/v1/depth` | Order book depth for a symbol |
+| `getRecentTrades(params)` | `GET dapi/v1/trades` | Recent trades |
+| `getHistoricalTrades(params)` | `GET dapi/v1/historicalTrades` | Older trade history |
+| `getAggregateTrades(params)` | `GET dapi/v1/aggTrades` | Compressed aggregate trades |
+| `getMarkPrice(params?)` | `GET dapi/v1/premiumIndex` | Mark price and funding rate |
+| `getFundingRateHistory(params?)` | `GET dapi/v1/fundingRate` | Historical funding rates |
+| `getFundingRate(params?)` | `GET dapi/v1/fundingInfo` | Current funding rates |
+| `getKlines(params)` | `GET dapi/v1/klines` | Candlestick data |
+| `getContinuousContractKlines(params)` | `GET dapi/v1/continuousKlines` | Continuous contract klines |
+| `getIndexPriceKlines(params)` | `GET dapi/v1/indexPriceKlines` | Index price klines |
+| `getMarkPriceKlines(params)` | `GET dapi/v1/markPriceKlines` | Mark price klines |
+| `getPremiumIndexKlines(params)` | `GET dapi/v1/premiumIndexKlines` | Premium index klines |
+| `get24hrChangeStatistics(params?)` | `GET dapi/v1/ticker/24hr` | 24-hour price change statistics |
+| `getSymbolPriceTicker(params?)` | `GET dapi/v1/ticker/price` | Latest price for symbol(s) |
+| `getSymbolOrderBookTicker(params?)` | `GET dapi/v1/ticker/bookTicker` | Best bid/ask price and quantity |
+| `getOpenInterest(params)` | `GET dapi/v1/openInterest` | Current open interest |
+| `getOpenInterestStatistics(params)` | `GET futures/data/openInterestHist` | Historical open interest |
+| `getTopTradersLongShortAccountRatio(params)` | `GET futures/data/topLongShortAccountRatio` | Top trader account ratio |
+| `getTopTradersLongShortPositionRatio(params)` | `GET futures/data/topLongShortPositionRatio` | Top trader position ratio |
+| `getGlobalLongShortAccountRatio(params)` | `GET futures/data/globalLongShortAccountRatio` | Global account long/short ratio |
+| `getTakerBuySellVolume(params)` | `GET futures/data/takerBuySellVol` | Taker buy/sell volume |
+| `getCompositeSymbolIndex(params)` | `GET futures/data/basis` | Basis data |
+| `getQuarterlyContractSettlementPrices(params)` | `GET futures/data/delivery-price` | Quarterly delivery settlement prices |
+
+### Order Management
+
+Authenticated endpoints — require `api_key` and `api_secret`.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `submitNewOrder(params)` | `POST dapi/v1/order` | Place a new COIN-M futures order |
+| `submitMultipleOrders(orders)` | `POST dapi/v1/batchOrders` | Place up to 5 orders in one request |
+| `modifyOrder(params)` | `PUT dapi/v1/order` | Modify an existing LIMIT order |
+| `modifyMultipleOrders(orders)` | `PUT dapi/v1/batchOrders` | Modify up to 5 orders in one request |
+| `cancelOrder(params)` | `DELETE dapi/v1/order` | Cancel an active order |
+| `cancelMultipleOrders(params)` | `DELETE dapi/v1/batchOrders` | Cancel multiple orders |
+| `cancelAllOpenOrders(params?)` | `DELETE dapi/v1/allOpenOrders` | Cancel all open orders |
+| `setCancelOrdersOnTimeout(params)` | `POST dapi/v1/countdownCancelAll` | Auto-cancel all orders after timeout |
+| `getOrder(params)` | `GET dapi/v1/order` | Query a specific order |
+| `getAllOrders(params)` | `GET dapi/v1/allOrders` | All orders for a symbol |
+| `getAllOpenOrders(params?)` | `GET dapi/v1/openOrders` | All open orders |
+| `getCurrentOpenOrder(params)` | `GET dapi/v1/openOrder` | Query a specific open order |
+| `getOrderModifyHistory(params)` | `GET dapi/v1/orderAmendment` | Order modification history |
+| `getForceOrders(params?)` | `GET dapi/v1/forceOrders` | Liquidation orders |
+
+### Position Management
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `getPositionInformation(params?)` | `GET dapi/v1/positionRisk` | Current open positions |
+| `setLeverage(params)` | `POST dapi/v1/leverage` | Set leverage for a symbol |
+| `setMarginType(params)` | `POST dapi/v1/marginType` | Switch ISOLATED / CROSSED margin |
+| `setIsolatedPositionMargin(params)` | `POST dapi/v1/positionMargin` | Adjust isolated margin |
+| `setPositionMode(params)` | `POST dapi/v1/positionSide/dual` | Toggle one-way / hedge mode |
+| `getCurrentPositionMode()` | `GET dapi/v1/positionSide/dual` | Query current position mode |
+| `getPositionMarginChangeHistory(params)` | `GET dapi/v1/positionMargin/history` | Margin change history |
+| `getADLQuantileEstimation(params?)` | `GET dapi/v1/adlQuantile` | ADL quantile estimation |
+| `getNotionalAndLeverageBrackets(params?)` | `GET dapi/v1/leverageBracket` | Notional and leverage brackets |
+
+### Account
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `getAccountInformation()` | `GET dapi/v1/account` | Full account information |
+| `getBalance()` | `GET dapi/v1/balance` | Balance per asset |
+| `getAccountTrades(params)` | `GET dapi/v1/userTrades` | Trade history |
+| `getIncomeHistory(params?)` | `GET dapi/v1/income` | Income history (funding, P&L, commission) |
+| `getAccountCommissionRate(params)` | `GET dapi/v1/commissionRate` | Commission rates for a symbol |
+| `getDownloadIdForTransactionHistory(params)` | `GET dapi/v1/income/asyn` | Request income history download |
+| `getDownloadLinkForTransactionHistory(params)` | `GET dapi/v1/income/asyn/id` | Retrieve download link |
+
+## Code Examples
+
+<CodeGroup>
+```typescript Public Market Data
+import { CoinMClient } from 'binance';
+
+const client = new CoinMClient();
+
+async function fetchCoinMData() {
+  // Exchange info — note BTCUSD_PERP symbol format
+  const info = await client.getExchangeInfo();
+  const perps = info.symbols.filter((s) => s.contractType === 'PERPETUAL');
+  console.log(`${perps.length} perpetual contracts available`);
+
+  // Mark price and funding rate for BTC perpetual
+  const markPrice = await client.getMarkPrice({ symbol: 'BTCUSD_PERP' });
+  console.log('Mark price:', markPrice.markPrice);
+  console.log('Funding rate:', markPrice.lastFundingRate);
+
+  // Order book
+  const book = await client.getOrderBook({ symbol: 'BTCUSD_PERP', limit: 5 });
+  console.log('Best bid:', book.bids[0]);
+  console.log('Best ask:', book.asks[0]);
+}
+
+fetchCoinMData().catch(console.error);
+```
+
+```typescript Authenticated Trading
+import { CoinMClient } from 'binance';
+
+const client = new CoinMClient({
+  api_key: process.env.BINANCE_API_KEY!,
+  api_secret: process.env.BINANCE_API_SECRET!,
+  beautifyResponses: true,
+  // testnet: true, // switch to testnet for testing
+});
+
+async function tradeCoinM() {
+  // Check balance — returned in BTC, not USDT
+  const balances = await client.getBalance();
+  const btcBalance = balances.find((b) => b.asset === 'BTC');
+  console.log('BTC balance:', btcBalance?.balance);
+
+  // Set 5x leverage on BTC perpetual
+  await client.setLeverage({ symbol: 'BTCUSD_PERP', leverage: 5 });
+
+  // Place a market buy (1 contract = 100 USD notional for BTC)
+  const order = await client.submitNewOrder({
+    symbol: 'BTCUSD_PERP',
+    side: 'BUY',
+    type: 'MARKET',
+    quantity: 1,
+  });
+  console.log('Order:', order.orderId, order.status);
+
+  // Query position — P&L is in BTC
+  const positions = await client.getPositionInformation({ symbol: 'BTCUSD_PERP' });
+  console.log('Position:', positions[0]?.positionAmt, 'BTC notional');
+}
+
+tradeCoinM().catch(console.error);
+```
+
+```typescript Order Book Ticker
+import { CoinMClient } from 'binance';
+
+const client = new CoinMClient();
+
+async function checkTicker() {
+  // All COIN-M order book tickers
+  const tickers = await client.getSymbolOrderBookTicker();
+  console.log(`${tickers.length} symbols`);
+
+  // Single symbol
+  const btcTicker = await client.getSymbolOrderBookTicker({
+    symbol: 'BTCUSD_PERP',
+  });
+  console.log('BTC best bid:', btcTicker[0]?.bidPrice);
+  console.log('BTC best ask:', btcTicker[0]?.askPrice);
+}
+
+checkTicker().catch(console.error);
+```
+</CodeGroup>
+
+## COIN-M Symbol Naming
+
+COIN-M symbols follow a different convention from Spot and USD-M Futures:
+
+| Format | Example | Description |
+|--------|---------|-------------|
+| `{BASE}USD_PERP` | `BTCUSD_PERP` | Perpetual contract |
+| `{BASE}USD_{YYMMDD}` | `BTCUSD_240927` | Quarterly delivery contract |
+| `{BASE}USD_{YYMMDD}` | `BTCUSD_241227` | Next-quarter delivery contract |
+
+<Info>
+  The `pair` parameter (e.g. `BTCUSD`) can be used in some COIN-M endpoints instead of `symbol` to retrieve data for all contracts on a given underlying asset simultaneously.
+</Info>
+
+## Testnet Support
+
+COIN-M Futures testnet is available at `https://testnet.binancefuture.com`. Pass `testnet: true` in the constructor to route all requests there. Note that COIN-M Demo Trading is not currently available — the testnet is the only sandbox environment for COIN-M.
+
+```typescript
+const client = new CoinMClient({
+  api_key: 'YOUR_TESTNET_KEY',
+  api_secret: 'YOUR_TESTNET_SECRET',
+  testnet: true,
+});
+```
+
+## Full Endpoint Map
+
+A complete reference of every `CoinMClient` method, its authentication requirement, HTTP method, and target endpoint:
+
+[REST Endpoint Function List →](https://github.com/tiagosiebler/binance/blob/master/docs/endpointFunctionList.md#coinm-clientts)

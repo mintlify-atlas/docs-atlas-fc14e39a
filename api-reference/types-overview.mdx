@@ -1,0 +1,348 @@
+---
+title: "TypeScript Types and Interfaces: Full SDK Reference"
+sidebarTitle: "Types Overview"
+description: "Overview of the TypeScript types, interfaces, and enums exported from the binance package, organized by module and by product group."
+---
+
+The `binance` package is written in TypeScript and re-exports every type from its `src/index.ts` entry point. All types, interfaces, enums, and type unions are available as named imports from `'binance'` — no deep path imports are required. This page organises the most important exports by module so you can quickly find what you need.
+
+## How to Import Types
+
+```typescript
+import type {
+  WSClientConfigurableOptions,
+  WsMarket,
+  WsKey,
+  KlineInterval,
+  OrderSide,
+  OrderType,
+  WsFormattedMessage,
+  WsUserDataEvents,
+} from 'binance';
+```
+
+<Tip>
+  Use `import type { ... }` for type-only imports to ensure they are erased at compile time and do not affect your bundle size.
+</Tip>
+
+---
+
+## `types/shared` — Common Trading Types
+
+These types are used across all product groups (Spot, Margin, Futures) and form the foundation of the SDK's type system.
+
+### Primitive Types
+
+| Type | Kind | Description |
+|---|---|---|
+| `numberInString` | `type` | `string \| number`. Binance often returns numbers as strings in REST responses. |
+| `ExchangeSymbol` | `type` | An alias for `string` used to represent a trading pair symbol. |
+| `BooleanString` | `type` | `'true' \| 'false'` — Binance's string-encoded boolean. |
+| `BinanceBaseUrlKey` | `type` | Union of base URL identifier strings. |
+
+### Order Types and Enums
+
+| Type | Kind | Values / Description |
+|---|---|---|
+| `OrderSide` | `type` | `'BUY' \| 'SELL'` |
+| `OrderType` | `type` | `'LIMIT' \| 'MARKET' \| 'STOP_LOSS' \| 'STOP_LOSS_LIMIT' \| 'TAKE_PROFIT' \| 'TAKE_PROFIT_LIMIT' \| 'LIMIT_MAKER'` |
+| `OrderStatus` | `type` | `'NEW' \| 'PARTIALLY_FILLED' \| 'FILLED' \| 'CANCELED' \| 'PENDING_CANCEL' \| 'REJECTED' \| 'EXPIRED' \| 'EXPIRED_IN_MATCH'` |
+| `OrderTimeInForce` | `type` | `'GTC' \| 'IOC' \| 'FOK' \| 'GTX' \| 'GTD' \| 'PO'` |
+| `OrderExecutionType` | `type` | Execution report event type: `'NEW' \| 'CANCELED' \| 'REPLACED' \| ...` |
+| `OrderResponseType` | `type` | `'ACK' \| 'RESULT' \| 'FULL'` |
+| `OrderListOrderType` | `type` | Order list constituent order types. |
+| `SelfTradePreventionMode` | `type` | `'EXPIRE_TAKER' \| 'EXPIRE_MAKER' \| 'EXPIRE_BOTH' \| 'NONE'` |
+| `OCOStatus` | `type` | `'RESPONSE' \| 'EXEC_STARTED' \| 'ALL_DONE'` |
+| `OCOOrderStatus` | `type` | `'EXECUTING' \| 'ALL_DONE' \| 'REJECT'` |
+| `SideEffects` | `type` | Margin order side effects union. |
+
+### Interval and Kline Types
+
+| Type | Kind | Description |
+|---|---|---|
+| `KlineInterval` | `type` | All valid candlestick intervals: `'1s' \| '1m' \| '3m' \| '5m' \| '15m' \| '30m' \| '1h' \| '2h' \| '4h' \| '6h' \| '8h' \| '12h' \| '1d' \| '3d' \| '1w' \| '1M'` |
+| `Kline` | `type` | Tuple representing a single kline row from REST responses. |
+| `FuturesKline` | `type` | Alias for `Kline` — used in futures contexts. |
+
+### Parameter Interfaces
+
+| Interface | Description |
+|---|---|
+| `BasicSymbolParam` | `{ symbol: string }` — the most common request parameter shape. |
+| `BasicAssetParam` | `{ asset: string }` |
+| `SymbolArrayParam` | `{ symbols: string[] }` |
+| `BasicSymbolPaginatedParams` | Symbol + standard pagination fields (`limit`, `fromId`, etc). |
+| `BasicAssetPaginatedParams` | Asset + pagination fields. |
+| `GetOrderParams` | Parameters for querying a single order. |
+| `CancelOrderParams` | Parameters for cancelling an order. |
+| `KlinesParams` | Symbol + interval + optional time range for kline queries. |
+| `NewOCOParams` | Full parameter set for placing an OCO order. |
+| `OrderBookParams` | `{ symbol: string, limit?: number }` |
+
+### Exchange Filter Types
+
+| Type | Description |
+|---|---|
+| `SymbolPriceFilter` | Price filter applied to a symbol. |
+| `SymbolLotSizeFilter` | Lot size constraints for a symbol. |
+| `SymbolMinNotionalFilter` | Minimum notional value filter. |
+| `SymbolFilter` | Union of all possible symbol-level filters. |
+| `ExchangeFilter` | Union of all exchange-level filters. |
+
+---
+
+## `types/spot` — Spot Trading Types
+
+Spot-specific types for REST API responses and parameters.
+
+| Type / Interface | Description |
+|---|---|
+| `SpotBalance` | A single asset balance entry (`{ asset, free, locked }`). |
+| `SystemStatusResponse` | System status: `{ status: 0 \| 1, msg: string }`. |
+| `DailyAccountSnapshot` | Daily account snapshot response. |
+| `AllCoinsInformationResponse` | Full coin information including deposit/withdrawal status. |
+| `DepositHistory` | A single deposit history entry. |
+| `WithdrawHistory` | A single withdrawal history entry. |
+| `DepositAddressResponse` | Deposit address for a coin and network. |
+| `EnumDepositStatus` | Enum: deposit statuses. |
+| `EnumWithdrawStatus` | Enum: withdrawal statuses. |
+| `EnumWithdrawTransferType` | Enum: withdrawal transfer types. |
+| `SymbolStatus` | Union of symbol status strings: `'PRE_TRADING' \| 'TRADING' \| 'POST_TRADING' \| ...` |
+
+---
+
+## `types/futures` — USD-M & Derivatives Types
+
+Types specific to the USD-M Futures and related derivatives markets.
+
+| Type / Interface | Description |
+|---|---|
+| `FuturesContractType` | `'CURRENT_QUARTER' \| 'NEXT_QUARTER' \| 'PERPETUAL'` |
+| `FuturesOrderType` | Futures-specific order types including `'STOP' \| 'TAKE_PROFIT' \| 'TRAILING_STOP_MARKET'` |
+| `PositionSide` | `'BOTH' \| 'LONG' \| 'SHORT'` |
+| `MarginType` | `'ISOLATED' \| 'CROSSED'` |
+| `WorkingType` | `'MARK_PRICE' \| 'CONTRACT_PRICE'` |
+| `PriceMatchMode` | Price match options for futures orders. |
+| `IncomeType` | All valid income type strings for futures income history. |
+| `ForceOrderCloseType` | `'LIQUIDATION' \| 'ADL'` |
+| `NewFuturesOrderParams` | Full parameter type for placing a futures order. |
+| `ModifyFuturesOrderParams` | Parameters for modifying an open futures order. |
+| `SetLeverageParams` | `{ symbol, leverage }` |
+| `SetLeverageResult` | Returned after setting leverage. |
+| `SetIsolatedMarginParams` | Parameters for adjusting isolated margin. |
+| `GetIncomeHistoryParams` | Parameters for querying futures income history. |
+| `IncomeHistory` | A single income history entry. |
+| `FuturesAlgoOrderType` | `'CONDITIONAL'` |
+| `FuturesAlgoConditionalOrderTypes` | All conditional algo order sub-types. |
+| `FuturesAlgoOrderStatus` | Status values for algo orders. |
+| `FuturesNewAlgoOrderParams` | Parameters for submitting a futures algo order. |
+| `FuturesAlgoOrderResponse` | Response from algo order creation. |
+
+---
+
+## `types/coin` — COIN-M Futures Types
+
+Types specific to the COIN-M (inverse, coin-margined) futures product group.
+
+| Type / Interface | Description |
+|---|---|
+| `PositionRisk` | Position risk information for a COIN-M contract. |
+| `CoinMOpenInterest` | Open interest data for a COIN-M symbol. |
+| `SymbolOrPair` | Union: a single symbol or a pair string. |
+| `CoinMSymbolOrderBookTicker` | Order book ticker shape for COIN-M symbols. |
+| `CoinMPositionTrade` | Trade entry for a COIN-M position. |
+| `FundingRate` | Historical funding rate entry. |
+| `CoinMAccountTradeParams` | Union of COIN-M trade query parameter shapes. |
+
+---
+
+## `types/portfolio-margin` — Portfolio Margin Types
+
+Types for the Portfolio Margin and Portfolio Margin Pro product groups.
+
+| Type / Interface | Description |
+|---|---|
+| `PMStrategyType` | Portfolio margin strategy type union. |
+| `PMWorkingType` | `'MARK_PRICE' \| 'CONTRACT_PRICE'` |
+| `PMPriceMatch` | Price match mode options for PM orders. |
+| `PMMarginOrderType` | Order type union for Portfolio Margin. |
+| `PMSelfTradePreventionMode` | STP mode options for Portfolio Margin orders. |
+| `NewPortfolioUMOrderReq` | Request for placing a USD-M Portfolio Margin order. |
+| `NewPortfolioUMOrderResponse` | Response from a PM USD-M order placement. |
+| `NewPortfolioUMConditionalOrderReq` | Request for a conditional PM order. |
+| `NewPortfolioUMAlgoOrderReq` | Request for a PM algo order. |
+| `PortfolioUMAlgoOrder` | Shape of a PM algo order. |
+
+---
+
+## `types/websockets/ws-general` — WebSocket Configuration
+
+Core WebSocket types shared across streams and the WS API.
+
+| Type / Interface | Description |
+|---|---|
+| `WSClientConfigurableOptions` | Constructor options for `WebsocketClient` and `WebsocketAPIClient`. Includes `api_key`, `api_secret`, `beautify`, `testnet`, `demoTrading`, `reconnectTimeout`, and more. |
+| `WebsocketClientOptions` | Extended form of `WSClientConfigurableOptions` with all defaults filled in. |
+| `WsMarket` | Union of market strings: `'spot' \| 'spotTestnet' \| 'crossMargin' \| 'isolatedMargin' \| 'usdm' \| 'usdmTestnet' \| 'coinm' \| 'coinmTestnet' \| 'options' \| 'portfoliom' \| 'alpha'` |
+| `WsTopic` | Alias for a raw topic string used in subscribe/unsubscribe calls. |
+| `WsSharedBase` | Base interface extended by all formatted and raw WS message types. Fields: `wsMarket`, `wsKey`, `streamName`. |
+| `WsResponse` | Shape of a WebSocket command confirmation response. |
+
+### `WsKey` Values
+
+`WsKey` is a union of all keys from `WS_KEY_MAP`. Commonly used values:
+
+```typescript
+import type { WsKey } from 'binance';
+
+// Examples:
+const spotKey: WsKey = 'main';
+const usdmKey: WsKey = 'usdm';
+const coinmKey: WsKey = 'coinm';
+const testnetKey: WsKey = 'mainTestnetPublic';
+```
+
+---
+
+## `types/websockets/ws-events-formatted` — Formatted Event Types
+
+These types are the shapes of objects emitted on the `formattedMessage` and `formattedUserDataMessage` events when `beautify: true`.
+
+### Market Data Event Types
+
+| Interface | `eventType` | Description |
+|---|---|---|
+| `WsMessageKlineFormatted` | `'kline'` | Candlestick update. Contains a nested `kline` object with OHLCV data. |
+| `WsMessageContinuousKlineFormatted` | `'continuous_kline'` | Continuous contract kline update (futures). |
+| `WsMessageAggTradeFormatted` | `'aggTrade'` | Compressed aggregate trade. |
+| `WsMessageTradeFormatted` | `'trade'` | Individual raw trade event. |
+| `WsMessage24hrMiniTickerFormatted` | `'24hrMiniTicker'` | 24-hour mini ticker (OHLC + volume). |
+| `WsMessage24hrTickerFormatted` | `'24hrTicker'` | Full 24-hour rolling window ticker. |
+| `WsMessageRollingWindowTickerFormatted` | `'1hTicker' \| '4hTicker' \| '1dTicker'` | Rolling window ticker with custom window. |
+| `WsMessageBookTickerEventFormatted` | — | Best bid/ask update. |
+| `WsMessagePartialBookDepthEventFormatted` | `'partialBookDepth'` | Partial order book snapshot. |
+| `WsMessageDiffBookDepthEventFormatted` | `'depthUpdate'` | Incremental order book diff. |
+| `WsMessageMarkPriceEventFormatted` | `'markPriceUpdate'` | Mark price update (futures). |
+| `WsMessageForceOrderFormatted` | `'forceOrder'` | Liquidation order event (futures). |
+| `WsMessageIndexPriceUpdateEventFormatted` | — | Index price update (options). |
+
+### User Data Event Types
+
+| Type | Description |
+|---|---|
+| `WsMessageSpotUserDataEventFormatted` | Union of all Spot user data event types. |
+| `WsMessageFuturesUserDataEventFormatted` | Union of all USD-M Futures user data event types. |
+| `WsUserDataEvents` | Combined union of Spot + Futures + Portfolio Margin user data events. Used by the `formattedUserDataMessage` event. |
+| `WsFormattedMessage` | Top-level union of every possible formatted event (market data + user data). Narrowed using [type guards](/api-reference/type-guards). |
+
+### Spot User Data Events
+
+| Interface | `eventType` | Description |
+|---|---|---|
+| `WsMessageSpotUserDataExecutionReportEventFormatted` | `'executionReport'` | Order update (placed, filled, cancelled, etc). |
+| `WsMessageSpotOutboundAccountPositionFormatted` | `'outboundAccountPosition'` | Balance update triggered by an order or transfer. |
+| `WsMessageSpotBalanceUpdateFormatted` | `'balanceUpdate'` | Account balance delta event. |
+| `WsMessageSpotUserDataListStatusEventFormatted` | `'listStatus'` | OCO order list status update. |
+
+### Futures User Data Events
+
+| Interface | `eventType` | Description |
+|---|---|---|
+| `WsMessageFuturesUserDataAccountUpdateFormatted` | `'ACCOUNT_UPDATE'` | Futures account balance and position update. |
+| `WsMessageFuturesUserDataTradeUpdateEventFormatted` | `'ORDER_TRADE_UPDATE'` | Futures order / trade update. |
+| `WsMessageFuturesUserDataMarginCallFormatted` | `'MARGIN_CALL'` | Margin call notification. |
+| `WsMessageFuturesUserDataAlgoUpdateFormatted` | `'ALGO_UPDATE'` | Algo order status update. |
+| `WsMessageFuturesUserDataCondOrderTriggerRejectEventFormatted` | `'CONDITIONAL_ORDER_TRIGGER_REJECT'` | Conditional order trigger rejection. |
+| `WsMessageFuturesUserDataAccountConfigUpdateEventFormatted` | `'ACCOUNT_CONFIG_UPDATE'` | Account configuration change (e.g. leverage). |
+| `WsMessageFuturesUserDataListenKeyExpiredFormatted` | `'listenKeyExpired'` | Listen key expiry notification. |
+
+---
+
+## `types/websockets/ws-events-raw` — Raw Event Types
+
+These are the unprocessed message shapes used when `beautify` is not enabled (or for the `message` event). They mirror Binance's original abbreviated field names (e.g. `e`, `s`, `T`).
+
+Key raw types include: `WsMessageKlineRaw`, `WsMessageAggTradeRaw`, `WsMessageTradeRaw`, `WsMessage24hrMiniTickerRaw`, `WsMessageBookTickerEventRaw`, `WsMessagePartialBookDepthEventRaw`, `WsMessageDiffBookDepthEventRaw`, `WsMessageFuturesUserDataAccountUpdateRaw`, `WsMessageFuturesUserDataOrderTradeUpdateEventRaw`, `WsMessageFuturesUserDataAlgoUpdateRaw`, `WsMessageFuturesUserDataAccountConfigUpdateEventRaw`, `WsEventStreamTerminatedRaw`, `AccountUpdateEventType`.
+
+The top-level union `WsRawMessage` covers all raw message shapes and is the type of the payload in the `message` event.
+
+---
+
+## `types/websockets/ws-api` — WebSocket API Types
+
+Types describing WS API requests, responses, and internal operation mappings.
+
+| Type / Interface | Description |
+|---|---|
+| `WSAPIResponse<T>` | Generic response wrapper: `{ result: T, rateLimits: WSAPIRateLimit[], id: number }`. |
+| `WsOperation` | Union of all valid WS stream operations (e.g. `'SUBSCRIBE'`, `'UNSUBSCRIBE'`). |
+| `WsAPIOperation` | Union of all valid WS API method names (e.g. `'order.place'`, `'ticker.book'`). |
+| `WsRequestOperationBinance` | Shape of a WS API JSON request object sent over the socket. |
+| `WSAPIUserDataListenKeyRequest` | Parameter shape for listen-key related WS API calls. |
+| `WsAPITopicRequestParamMap` | Maps WS API operation strings to their expected request parameter types. |
+| `WsAPIOperationResponseMap` | Maps WS API operation strings to their expected response types. |
+
+---
+
+## `types/websockets/ws-api-requests` & `ws-api-responses`
+
+These modules define the typed request and response shapes for every WS API method exposed by `WebsocketAPIClient`. All types follow a `WSAPI*Request` / `WSAPI*` naming pattern and are re-exported from the package root.
+
+Notable examples:
+
+```typescript
+import type {
+  WSAPINewSpotOrderRequest,
+  WSAPIOrderStatusRequest,
+  WSAPIOrderBookRequest,
+  WSAPIAccountInformationRequest,
+  WSAPIKlinesRequest,
+  WSAPIOrder,
+  WSAPIOrderBook,
+  WSAPIAccountInformation,
+  WSAPIKline,
+  WSAPIAccountCommission,
+  WSAPIFuturesOrder,
+  WSAPIFuturesOrderBook,
+} from 'binance';
+```
+
+---
+
+## Typed Usage Example
+
+```typescript
+import {
+  WebsocketClient,
+  type WSClientConfigurableOptions,
+  type WsFormattedMessage,
+  type WsMessageKlineFormatted,
+  type KlineInterval,
+  type OrderSide,
+} from 'binance';
+
+const options: WSClientConfigurableOptions = {
+  api_key: 'YOUR_API_KEY',
+  api_secret: 'YOUR_API_SECRET',
+  beautify: true,
+  reconnectTimeout: 1500,
+};
+
+const wsClient = new WebsocketClient(options);
+
+// Fully typed event handler
+wsClient.on('formattedMessage', (data: WsFormattedMessage) => {
+  // Type guard narrows from WsFormattedMessage → WsMessageKlineFormatted
+  if (!Array.isArray(data) && data.eventType === 'kline') {
+    const klineEvent = data as WsMessageKlineFormatted;
+    const close: number = klineEvent.kline.close;
+    const interval: KlineInterval = klineEvent.kline.interval;
+    console.log(`${klineEvent.symbol} [${interval}] close = ${close}`);
+  }
+});
+
+// KlineInterval and OrderSide used as typed parameters
+const interval: KlineInterval = '1m';
+const side: OrderSide = 'BUY';
+wsClient.subscribeKlines('BTCUSDT', interval, 'spot');
+```

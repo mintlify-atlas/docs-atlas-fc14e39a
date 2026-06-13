@@ -1,0 +1,287 @@
+---
+title: "MainClient REST API Method Reference"
+sidebarTitle: "MainClient"
+description: "Complete method reference for MainClient, covering Spot, Margin, Wallet, Convert, Earn, Sub-accounts, and more. Includes method signatures, parameters, and linked endpoints."
+---
+
+`MainClient` is the primary REST client for Binance Spot and associated APIs. It covers the full breadth of the Binance REST surface: public market data, authenticated order management, margin trading, wallet operations, convert, staking, and sub-account endpoints — all accessible through a single, typed TypeScript class.
+
+<Note>
+  This page highlights the most commonly used methods. The complete endpoint-to-function mapping — including every SAPI and WAPI method — is available in the [endpointFunctionList reference](https://github.com/tiagosiebler/binance/blob/master/docs/endpointFunctionList.md) on GitHub.
+</Note>
+
+## Installation & Instantiation
+
+```typescript
+import { MainClient } from 'binance';
+
+const client = new MainClient({
+  api_key: process.env.BINANCE_API_KEY,
+  api_secret: process.env.BINANCE_API_SECRET,
+});
+```
+
+---
+
+## Market Data
+
+These methods are **public** — no API key or signature is required.
+
+| Method | HTTP | Endpoint | Description |
+|---|---|---|---|
+| `testConnectivity()` | GET | `api/v3/ping` | Test server connectivity |
+| `getExchangeInfo(params?)` | GET | `api/v3/exchangeInfo` | Exchange trading rules and symbol info |
+| `getOrderBook(params)` | GET | `api/v3/depth` | Order book depth for a symbol |
+| `getRecentTrades(params)` | GET | `api/v3/trades` | Latest trades for a symbol |
+| `getHistoricalTrades(params)` | GET | `api/v3/historicalTrades` | Older trades for a symbol |
+| `getHistoricalBlockTrades(params)` | GET | `api/v3/historicalBlockTrades` | Historical block trade data |
+| `getAggregateTrades(params)` | GET | `api/v3/aggTrades` | Compressed / aggregate trade list |
+| `getKlines(params)` | GET | `api/v3/klines` | Kline / candlestick data |
+| `getUIKlines(params)` | GET | `api/v3/uiKlines` | Klines optimised for UI display |
+| `getAvgPrice(params)` | GET | `api/v3/avgPrice` | Current average price for a symbol |
+| `getExecutionRules(params?)` | GET | `api/v3/executionRules` | Spot execution rules |
+| `getReferencePrice(params)` | GET | `api/v3/referencePrice` | Reference price for a symbol |
+| `get24hrChangeStatistics(params?)` | GET | `api/v3/ticker/24hr` | 24-hour rolling window price stats |
+| `getTradingDayTicker(params)` | GET | `api/v3/ticker/tradingDay` | Trading day ticker statistics |
+| `getSymbolPriceTicker(params?)` | GET | `api/v3/ticker/price` | Latest price for one or more symbols |
+| `getSymbolOrderBookTicker(params?)` | GET | `api/v3/ticker/bookTicker` | Best bid/ask for one or more symbols |
+| `getRollingWindowTicker(params)` | GET | `api/v3/ticker` | Rolling-window price change statistics |
+
+### Code Example — Market Data
+
+```typescript
+import { MainClient } from 'binance';
+
+const client = new MainClient();
+
+// Test connectivity
+await client.testConnectivity();
+
+// Fetch order book (top 5 levels)
+const book = await client.getOrderBook({ symbol: 'BTCUSDT', limit: 5 });
+console.log(book.bids, book.asks);
+
+// 24-hour statistics for a single symbol
+const stats = await client.get24hrChangeStatistics({ symbol: 'ETHUSDT' });
+console.log(stats.priceChangePercent);
+
+// Latest price ticker for multiple symbols
+const prices = await client.getSymbolPriceTicker({
+  symbols: ['BTCUSDT', 'BNBUSDT'],
+});
+```
+
+---
+
+## Order Management
+
+These methods **require authentication** (API key + secret).
+
+| Method | HTTP | Endpoint | Description |
+|---|---|---|---|
+| `submitNewOrder(params)` | POST | `api/v3/order` | Place a new spot order |
+| `testNewOrder(params)` | POST | `api/v3/order/test` | Test order placement without sending to matching engine |
+| `getOrder(params)` | GET | `api/v3/order` | Query the status of a specific order |
+| `cancelOrder(params)` | DELETE | `api/v3/order` | Cancel an active order |
+| `cancelAllSymbolOrders(params)` | DELETE | `api/v3/openOrders` | Cancel all open orders for a symbol |
+| `replaceOrder(params)` | POST | `api/v3/order/cancelReplace` | Cancel an existing order and submit a new one |
+| `amendOrderKeepPriority(params)` | PUT | `fapi/v1/order/amend/keepPriority` | Reduce order quantity while keeping queue priority |
+| `getOpenOrders(params?)` | GET | `api/v3/openOrders` | Retrieve all open orders (optionally for one symbol) |
+| `getAllOrders(params)` | GET | `api/v3/allOrders` | Retrieve all orders (open, cancelled, filled) |
+| `submitNewOCO(params)` | POST | `api/v3/order/oco` | Place an OCO (One-Cancels-the-Other) order *(deprecated)* |
+| `submitNewOrderList(params)` | POST | `api/v3/orderList/oco` | Place a new OCO order list |
+| `submitNewOrderListOTO(params)` | POST | `api/v3/orderList/oto` | Place a new OTO order list |
+| `submitNewOrderListOTOCO(params)` | POST | `api/v3/orderList/otoco` | Place a new OTOCO order list |
+| `submitNewOrderListOPO(params)` | POST | `api/v3/orderList/opo` | Place a new OPO order list |
+| `submitNewOrderListOPOCO(params)` | POST | `api/v3/orderList/opoco` | Place a new OPOCO order list |
+| `cancelOCO(params)` | DELETE | `api/v3/orderList` | Cancel an entire order list by list ID |
+| `getOCO(params?)` | GET | `api/v3/orderList` | Query a specific order list |
+| `getAllOCO(params?)` | GET | `api/v3/allOrderList` | Retrieve all order lists |
+| `getAllOpenOCO()` | GET | `api/v3/openOrderList` | Retrieve all open OCO order lists |
+| `submitNewSOROrder(params)` | POST | `api/v3/sor/order` | Place an order using Smart Order Routing |
+| `testNewSOROrder(params)` | POST | `api/v3/sor/order/test` | Test SOR order placement |
+
+### Code Example — Order Management
+
+```typescript
+import { MainClient } from 'binance';
+
+const client = new MainClient({
+  api_key: process.env.BINANCE_API_KEY,
+  api_secret: process.env.BINANCE_API_SECRET,
+});
+
+// Place a LIMIT BUY order
+const order = await client.submitNewOrder({
+  symbol: 'BTCUSDT',
+  side: 'BUY',
+  type: 'LIMIT',
+  timeInForce: 'GTC',
+  quantity: 0.001,
+  price: 50000,
+});
+console.log('Order ID:', order.orderId);
+
+// Check its status
+const status = await client.getOrder({
+  symbol: 'BTCUSDT',
+  orderId: order.orderId,
+});
+
+// Cancel it
+await client.cancelOrder({
+  symbol: 'BTCUSDT',
+  orderId: order.orderId,
+});
+```
+
+---
+
+## Account
+
+| Method | HTTP | Endpoint | Description |
+|---|---|---|---|
+| `getAccountInformation(params?)` | GET | `api/v3/account` | Current account balances and permissions |
+| `getAccountTradeList(params)` | GET | `api/v3/myTrades` | Trades for a specific symbol |
+| `getOrderRateLimit()` | GET | `api/v3/rateLimit/order` | Current order count usage against rate limits |
+| `getPreventedMatches(params)` | GET | `api/v3/myPreventedMatches` | Orders that expired due to STP |
+| `getAllocations(params)` | GET | `api/v3/myAllocations` | Allocations resulting from SOR orders |
+| `getCommissionRates(params)` | GET | `api/v3/account/commission` | Commission rates for a symbol |
+
+---
+
+## Margin Trading
+
+| Method | HTTP | Endpoint | Description |
+|---|---|---|---|
+| `getAllCrossMarginPairs()` | GET | `sapi/v1/margin/allPairs` | All cross-margin trading pairs |
+| `getAllMarginAssets()` | GET | `sapi/v1/margin/allAssets` | All assets available for margin borrowing |
+| `getCrossMarginCollateralRatio()` | GET | `sapi/v1/margin/crossMarginCollateralRatio` | Cross-margin collateral ratios |
+| `getIsolatedMarginAllSymbols(params?)` | GET | `sapi/v1/margin/isolated/allPairs` | All isolated margin symbols |
+| `queryMarginPriceIndex(params)` | GET | `sapi/v1/margin/priceIndex` | Margin price index for an asset |
+| `submitMarginAccountBorrowRepay(params)` | POST | `sapi/v1/margin/borrow-repay` | Borrow or repay margin assets |
+| `getMarginAccountBorrowRepayRecords(params)` | GET | `sapi/v1/margin/borrow-repay` | Margin borrow/repay records |
+| `marginAccountNewOrder(params)` | POST | `sapi/v1/margin/order` | Place a margin order |
+| `marginAccountCancelOrder(params)` | DELETE | `sapi/v1/margin/order` | Cancel a margin order |
+| `marginAccountCancelOpenOrders(params)` | DELETE | `sapi/v1/margin/openOrders` | Cancel all open margin orders |
+| `marginAccountNewOCO(params)` | POST | `sapi/v1/margin/order/oco` | Place a margin OCO order |
+| `marginAccountCancelOCO(params)` | DELETE | `sapi/v1/margin/orderList` | Cancel a margin OCO order list |
+| `queryMarginAccountOrder(params)` | GET | `sapi/v1/margin/order` | Query a margin order |
+| `queryMarginAccountOpenOrders(params)` | GET | `sapi/v1/margin/openOrders` | Query open margin orders |
+| `queryMarginAccountAllOrders(params)` | GET | `sapi/v1/margin/allOrders` | Query all margin orders |
+| `queryMarginAccountTradeList(params)` | GET | `sapi/v1/margin/myTrades` | Margin account trade list |
+| `queryCrossMarginAccountDetails()` | GET | `sapi/v1/margin/account` | Cross-margin account details |
+| `getIsolatedMarginAccountInfo(params?)` | GET | `sapi/v1/margin/isolated/account` | Isolated margin account details |
+| `queryMaxBorrow(params)` | GET | `sapi/v1/margin/maxBorrowable` | Maximum amount borrowable |
+| `queryMaxTransferOutAmount(params)` | GET | `sapi/v1/margin/maxTransferable` | Maximum amount transferable out |
+| `getMarginInterestHistory(params)` | GET | `sapi/v1/margin/interestHistory` | Margin interest history |
+| `getMarginInterestRateHistory(params)` | GET | `sapi/v1/margin/interestRateHistory` | Historical margin interest rates |
+| `submitMarginOTOOrder(params)` | POST | `sapi/v1/margin/order/oto` | Post a margin OTO order |
+| `submitMarginOTOCOOrder(params)` | POST | `sapi/v1/margin/order/otoco` | Submit a margin OTOCO order |
+| `toggleBNBBurn(params)` | POST | `sapi/v1/bnbBurn` | Enable or disable BNB fee burn |
+| `getBNBBurn()` | GET | `sapi/v1/bnbBurn` | Query BNB fee burn status |
+
+---
+
+## Wallet
+
+| Method | HTTP | Endpoint | Description |
+|---|---|---|---|
+| `getBalances()` | GET | `sapi/v1/capital/config/getall` | All coin balances (deposit/withdrawal info) |
+| `withdraw(params)` | POST | `sapi/v1/capital/withdraw/apply` | Submit a withdrawal request |
+| `getWithdrawHistory(params?)` | GET | `sapi/v1/capital/withdraw/history` | Withdrawal history |
+| `getDepositHistory(params?)` | GET | `sapi/v1/capital/deposit/hisrec` | Deposit history |
+| `getDepositAddress(params)` | GET | `sapi/v1/capital/deposit/address` | Deposit address for a coin |
+| `getDepositAddresses(params)` | GET | `sapi/v1/capital/deposit/address/list` | List of deposit addresses |
+| `getAssetDetail(params?)` | GET | `sapi/v1/asset/assetDetail` | Withdraw fee and minimum amount per asset |
+| `getWalletBalances(params?)` | GET | `sapi/v1/asset/wallet/balance` | Wallet balances across account types |
+| `getUserAsset(params)` | POST | `sapi/v3/asset/getUserAsset` | Asset balances with optional non-zero filter |
+| `submitUniversalTransfer(params)` | POST | `sapi/v1/asset/transfer` | Transfer assets between account types |
+| `getUniversalTransferHistory(params)` | GET | `sapi/v1/asset/transfer` | Universal transfer history |
+| `getDust(params)` | POST | `sapi/v1/asset/dust-btc` | Get small asset balances convertible to BNB |
+| `convertDustToBnb(params)` | POST | `sapi/v1/asset/dust` | Convert dust assets to BNB |
+| `convertDustAssets(params)` | POST | `sapi/v1/asset/dust-convert/convert` | Convert dust to a target asset |
+| `getDustLog(params?)` | GET | `sapi/v1/asset/dribblet` | Dust conversion log |
+| `getTradeFee(params?)` | GET | `sapi/v1/asset/tradeFee` | Maker/taker trade fee per symbol |
+| `getAccountInfo()` | GET | `sapi/v1/account/info` | General account information |
+| `getDailyAccountSnapshot(params)` | GET | `sapi/v1/accountSnapshot` | Daily account balance snapshot |
+| `getAccountStatus()` | GET | `sapi/v1/account/status` | Account status |
+| `getApiKeyPermissions()` | GET | `sapi/v1/account/apiRestrictions` | API key permissions |
+
+---
+
+## Convert
+
+| Method | HTTP | Endpoint | Description |
+|---|---|---|---|
+| `getConvertPairs(params)` | GET | `sapi/v1/convert/exchangeInfo` | All supported convert trading pairs |
+| `getConvertAssetInfo()` | GET | `sapi/v1/convert/assetInfo` | Asset precision and limits |
+| `convertQuoteRequest(params)` | POST | `sapi/v1/convert/getQuote` | Request a convert quote |
+| `acceptQuoteRequest(params)` | POST | `sapi/v1/convert/acceptQuote` | Accept a convert quote |
+| `getConvertTradeHistory(params)` | GET | `sapi/v1/convert/tradeFlow` | Convert trade history |
+| `getOrderStatus(params)` | GET | `sapi/v1/convert/orderStatus` | Convert order status |
+| `submitConvertLimitOrder(params)` | POST | `sapi/v1/convert/limit/placeOrder` | Place a convert limit order |
+| `cancelConvertLimitOrder(params)` | POST | `sapi/v1/convert/limit/cancelOrder` | Cancel a convert limit order |
+| `getConvertLimitOpenOrders()` | GET | `sapi/v1/convert/limit/queryOpenOrders` | Open convert limit orders |
+
+---
+
+## ETH Staking
+
+| Method | HTTP | Endpoint | Description |
+|---|---|---|---|
+| `getEthStakingAccountV2()` | GET | `sapi/v2/eth-staking/account` | ETH staking account information |
+| `getEthStakingQuota()` | GET | `sapi/v1/eth-staking/eth/quota` | ETH staking quota |
+| `subscribeEthStakingV2(params)` | POST | `sapi/v2/eth-staking/eth/stake` | Stake ETH |
+| `redeemEth(params)` | POST | `sapi/v1/eth-staking/eth/redeem` | Redeem staked ETH |
+| `wrapBeth(params)` | POST | `sapi/v1/eth-staking/wbeth/wrap` | Wrap BETH to WBETH |
+| `getEthStakingHistory(params)` | GET | `sapi/v1/eth-staking/eth/history/stakingHistory` | ETH staking history |
+| `getEthRedemptionHistory(params)` | GET | `sapi/v1/eth-staking/eth/history/redemptionHistory` | ETH redemption history |
+
+<Tip>
+  For Futures-related transfers from the Spot wallet (e.g. moving funds between Spot and USD-M Futures), use `submitUniversalTransfer()` with the appropriate `type` parameter rather than the older `submitNewFutureAccountTransfer()` method.
+</Tip>
+
+---
+
+## Full Usage Example
+
+```typescript
+import { MainClient } from 'binance';
+
+const client = new MainClient({
+  api_key: process.env.BINANCE_API_KEY,
+  api_secret: process.env.BINANCE_API_SECRET,
+});
+
+async function main() {
+  // --- Market data (public) ---
+  const exchangeInfo = await client.getExchangeInfo({ symbol: 'BTCUSDT' });
+  console.log('Status:', exchangeInfo.symbols[0].status);
+
+  const klines = await client.getKlines({
+    symbol: 'BTCUSDT',
+    interval: '1h',
+    limit: 10,
+  });
+  console.log('Last close:', klines[klines.length - 1][4]);
+
+  // --- Account (authenticated) ---
+  const account = await client.getAccountInformation();
+  const usdtBalance = account.balances.find((b) => b.asset === 'USDT');
+  console.log('USDT free:', usdtBalance?.free);
+
+  // --- Trade fee ---
+  const fees = await client.getTradeFee({ symbol: 'BTCUSDT' });
+  console.log('Maker fee:', fees[0].makerCommission);
+
+  // --- Wallet: deposit address ---
+  const depositAddr = await client.getDepositAddress({
+    coin: 'USDT',
+    network: 'TRX',
+  });
+  console.log('Deposit address:', depositAddr.address);
+}
+
+main();
+```

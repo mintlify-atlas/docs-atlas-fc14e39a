@@ -1,0 +1,306 @@
+---
+title: "Authenticate with the Binance SDK"
+sidebarTitle: "Authentication"
+description: "Configure HMAC, RSA, or Ed25519 authentication for the Binance SDK. Learn how to create API keys, set permissions, and pass credentials to any REST or WebSocket client."
+---
+
+The `binance` SDK supports all three authentication mechanisms available on Binance: HMAC (shared secret), RSA (asymmetric key pair), and Ed25519 (asymmetric key pair, recommended for WebSocket API). All three are configured through the same constructor fields — `api_key` and `api_secret` — and the SDK auto-detects the key type based on the format of `api_secret`. Private endpoints are signed automatically; you never need to compute signatures or manage timestamps manually.
+
+## Creating Binance API keys
+
+Before writing any code, create API credentials from the relevant Binance page:
+
+| Environment | URL |
+|---|---|
+| Live (production) | [binance.com API Management](https://www.binance.com/en/my/settings/api-management) |
+| Spot testnet | [testnet.binance.vision](https://testnet.binance.vision/) |
+| Futures testnet | [testnet.binancefuture.com](https://testnet.binancefuture.com/) |
+| Demo trading | [demo.binance.com](https://demo.binance.com/) |
+
+When creating a key, Binance asks you to choose between **System generated** (HMAC) and **Self-generated** (RSA or Ed25519). See the sections below for details on each type.
+
+## Supported key types
+
+### HMAC (System generated)
+
+HMAC is the default key type on Binance. After creating a key, you receive an `apiKey` and an `apiSecret`. Pass both directly to any SDK client:
+
+```typescript
+import { MainClient } from 'binance';
+
+const client = new MainClient({
+  api_key: 'your-api-key',
+  api_secret: 'your-api-secret',
+});
+
+(async () => {
+  try {
+    console.log('Account info:', await client.getAccountInfo());
+  } catch (e) {
+    console.error('Request failed:', e);
+  }
+})();
+```
+
+The SDK detects HMAC keys automatically — if `api_secret` does not contain the string `PRIVATE KEY`, HMAC is used.
+
+### RSA (Self-generated)
+
+RSA keys use a self-generated private/public key pair. You submit the **public** key to Binance when creating the API credential; Binance gives you back an `apiKey`. Your **private** key never leaves your system and is used by the SDK to sign requests with `RSA-SHA256`.
+
+**Generate an RSA key pair with OpenSSL:**
+
+```bash
+# Generate a 4096-bit RSA private key
+openssl genrsa -out rsa-private-key.pem 4096
+
+# Derive the corresponding public key
+openssl rsa -in rsa-private-key.pem -pubout -out rsa-public-key.pem
+```
+
+Submit the contents of `rsa-public-key.pem` when creating a new API key on Binance (choose the "Self-generated" option and upload the public key file).
+
+**Use the RSA private key in the SDK:**
+
+```typescript
+import { MainClient } from 'binance';
+
+const api_key = 'SIHqWcDeRoj6gkOjLjQh1dnV1CD7IgwQTfL4LVa8wu04zNTYVSmJBIHsjQjgwWqt';
+
+const rsaPrivateKey = `
+-----BEGIN RSA PRIVATE KEY-----
+MIIJKQIBAAKCAgEA1uWxxOXZUaX6...
+-----END RSA PRIVATE KEY-----
+`;
+
+const client = new MainClient({
+  api_key: api_key,
+  api_secret: rsaPrivateKey,
+  beautifyResponses: true,
+});
+
+(async () => {
+  try {
+    console.log('Balances:', await client.getBalances());
+  } catch (e) {
+    console.error('Request failed:', e);
+  }
+})();
+```
+
+The SDK detects RSA by checking that `api_secret` contains `RSA PRIVATE KEY` in the PEM header.
+
+### Ed25519 (Self-generated, recommended for WebSocket API)
+
+Ed25519 uses a more modern asymmetric algorithm and is **required for WebSocket API session-based authentication**. When using HMAC or RSA with the WebSocket API, every individual command must be independently signed. With Ed25519, the SDK authenticates the WebSocket API session once when the connection opens — all subsequent commands on that session are sent without additional per-request signatures, reducing latency.
+
+**Generate an Ed25519 key pair** using Binance's official key generator or with OpenSSL:
+
+```bash
+# Binance recommends their official asymmetric key generator:
+# https://github.com/binance/asymmetric-key-generator
+```
+
+After generating your keys, submit the **public** key to Binance when creating a new API credential. Keep the **private** key completely secret.
+
+**Use the Ed25519 private key in the SDK:**
+
+```typescript
+import { MainClient, WebsocketAPIClient } from 'binance';
+
+const ed25519PrivateKey = `
+-----BEGIN PRIVATE KEY-----
+lkmlkm123lkms1s12s+lkmlkm123lkms1s12s
+-----END PRIVATE KEY-----
+`;
+
+const ed25519APIKey = 'lkmlkm123lkms1s12slkmlkm123lkms1s12slkmlkm123lkms1s12s';
+
+// Use with the REST API client
+const restClient = new MainClient({
+  api_key: ed25519APIKey,
+  api_secret: ed25519PrivateKey,
+  beautifyResponses: true,
+});
+
+// Use with the WebSocket API client (session-based auth — fastest option)
+const wsApiClient = new WebsocketAPIClient({
+  api_key: ed25519APIKey,
+  api_secret: ed25519PrivateKey,
+});
+
+(async () => {
+  try {
+    console.log('Account info:', await restClient.getAccountInfo());
+  } catch (e) {
+    console.error('Request failed:', e);
+  }
+})();
+```
+
+The SDK detects Ed25519 by checking that `api_secret` contains `PRIVATE KEY` (but **not** `RSA PRIVATE KEY`) in the PEM header.
+
+## Auto-detection logic
+
+You never need to configure the key type explicitly. The SDK inspects `api_secret` at runtime:
+
+| `api_secret` content | Key type used |
+|---|---|
+| Plain string (no PEM header) | **HMAC** |
+| Contains `RSA PRIVATE KEY` | **RSA** — signed with `RSA-SHA256` |
+| Contains `PRIVATE KEY` (not RSA) | **Ed25519** — signed with Ed25519 |
+
+## Using environment variables
+
+Always load credentials from environment variables rather than hard-coding them:
+
+```bash
+# .env (never commit this file)
+BINANCE_API_KEY=your-api-key
+BINANCE_API_SECRET=your-api-secret-or-private-key
+```
+
+```typescript
+import { MainClient } from 'binance';
+
+const client = new MainClient({
+  api_key: process.env.BINANCE_API_KEY!,
+  api_secret: process.env.BINANCE_API_SECRET!,
+});
+```
+
+For RSA and Ed25519 private keys stored as environment variables, the multi-line PEM format is preserved as long as you use the correct quoting in your shell or secret manager.
+
+<Note>
+  **IP whitelisting is strongly recommended.** When creating API keys on Binance, enable IP whitelisting and restrict access to only the IP addresses your service uses. This limits the blast radius if credentials are ever exposed. Treat API keys like passwords — never commit them, never log them, and never send them to frontend code.
+</Note>
+
+## Passing credentials to REST clients
+
+All four REST clients accept the same `RestClientOptions` shape:
+
+```typescript
+interface RestClientOptions {
+  api_key?: string;        // Binance API key
+  api_secret?: string;     // HMAC secret, RSA PEM private key, or Ed25519 PEM private key
+  recvWindow?: number;     // Max request timestamp window in ms (default: Binance default)
+  beautifyResponses?: boolean; // Parse known float-strings to numbers (default: false)
+  testnet?: boolean;       // Use testnet endpoints (default: false)
+  demoTrading?: boolean;   // Use demo trading endpoints (default: false)
+}
+```
+
+Example with all four REST clients:
+
+<CodeGroup>
+
+```typescript MainClient (Spot)
+import { MainClient } from 'binance';
+
+const client = new MainClient({
+  api_key: process.env.BINANCE_API_KEY!,
+  api_secret: process.env.BINANCE_API_SECRET!,
+});
+```
+
+```typescript USDMClient (USD-M Futures)
+import { USDMClient } from 'binance';
+
+const client = new USDMClient({
+  api_key: process.env.BINANCE_API_KEY!,
+  api_secret: process.env.BINANCE_API_SECRET!,
+});
+```
+
+```typescript CoinMClient (COIN-M Futures)
+import { CoinMClient } from 'binance';
+
+const client = new CoinMClient({
+  api_key: process.env.BINANCE_API_KEY!,
+  api_secret: process.env.BINANCE_API_SECRET!,
+});
+```
+
+```typescript PortfolioClient (Portfolio Margin)
+import { PortfolioClient } from 'binance';
+
+const client = new PortfolioClient({
+  api_key: process.env.BINANCE_API_KEY!,
+  api_secret: process.env.BINANCE_API_SECRET!,
+});
+```
+
+</CodeGroup>
+
+## Passing credentials to WebSocket clients
+
+Both `WebsocketClient` and `WebsocketAPIClient` accept the same credential fields. Credentials are required only when subscribing to private user data streams.
+
+```typescript
+import { WebsocketClient, WebsocketAPIClient } from 'binance';
+
+// For public market data streams — no credentials needed
+const publicWs = new WebsocketClient({ beautify: true });
+
+// For private user data streams (Spot, Futures, Portfolio Margin)
+const privateWs = new WebsocketClient({
+  api_key: process.env.BINANCE_API_KEY!,
+  api_secret: process.env.BINANCE_API_SECRET!,
+  beautify: true,
+});
+
+// For WebSocket API commands (REST-like, over persistent WebSocket)
+const wsApi = new WebsocketAPIClient({
+  api_key: process.env.BINANCE_API_KEY!,
+  api_secret: process.env.BINANCE_API_SECRET!,
+});
+```
+
+<Tip>
+  Use Ed25519 credentials with `WebsocketAPIClient` for the lowest latency. The SDK authenticates the WebSocket API session once when the connection opens. With HMAC or RSA keys, every private command sent over the WebSocket API is signed individually.
+</Tip>
+
+## Key permissions
+
+When creating a Binance API key, you must explicitly enable the permissions your application needs. Grant only the minimum permissions required:
+
+| Permission | What it enables |
+|---|---|
+| **Read info** | Account balances, order history, position data, market data |
+| **Spot & Margin trading** | Placing and cancelling Spot and Margin orders |
+| **Futures trading** | Placing and cancelling USD-M and COIN-M Futures orders |
+| **Withdrawals** | Initiating withdrawals to external addresses |
+
+<Warning>
+  Never enable **Withdrawal** permissions on a trading key. Keep withdrawal-capable keys completely separate from any key used in automated trading systems. A compromised trading key without withdrawal permission cannot drain your funds.
+</Warning>
+
+## WebSocket API authentication detail
+
+The WebSocket API on Binance supports all three key types, but their session-auth behaviour differs:
+
+- **HMAC / RSA**: Each private WebSocket API command is signed individually. The session itself is not authenticated.
+- **Ed25519**: The SDK authenticates the WebSocket API session once after the connection opens. All subsequent private commands on that session are sent without additional per-request signatures.
+
+This makes Ed25519 the recommended choice for any latency-sensitive integration that uses the WebSocket API for order management:
+
+```typescript
+import { WebsocketAPIClient } from 'binance';
+
+// Ed25519 key pair — session authenticated once on connect
+const wsApi = new WebsocketAPIClient({
+  api_key: process.env.BINANCE_API_KEY!,
+  api_secret: process.env.BINANCE_API_SECRET!, // Ed25519 PEM private key
+});
+
+(async () => {
+  // The SDK handles connection, session auth, and request signing automatically
+  const account = await wsApi.getSpotAccountInformation({
+    timestamp: Date.now(),
+  });
+  console.log('Account:', account);
+
+  // Clean up when done
+  wsApi.disconnectAll();
+})();
+```

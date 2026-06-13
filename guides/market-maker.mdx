@@ -1,0 +1,201 @@
+---
+title: "Market Maker Endpoints in the Binance SDK"
+sidebarTitle: "Market Maker"
+description: "Access Binance's market maker subdomain endpoints using the useMMSubdomain option, available to qualified Futures Liquidity Provider Program participants."
+---
+
+Binance provides dedicated market maker subdomains for qualified futures traders who participate in the Binance Futures Liquidity Provider Program. These endpoints are hosted on separate infrastructure from the standard public API and are designed to offer improved latency for high-frequency trading workflows. The Binance SDK exposes market maker endpoints through a single constructor option that can be set on both REST and WebSocket clients.
+
+<Note>
+  Market maker endpoints are only available to traders who have enrolled in and qualified for at least one of Binance's Futures Liquidity Provider Programs. If you are not enrolled, `useMMSubdomain: true` will result in connection errors. More information on eligibility can be found in the [Binance FAQ](https://www.binance.com/en/support/faq/detail/7df7f3838c3b49e692d175374c3a3283).
+</Note>
+
+## What Are Market Maker Endpoints?
+
+Standard Binance futures API calls are routed through `fapi.binance.com` (USD-M) and `dapi.binance.com` (COIN-M). The market maker subdomains — `fapi-mm.binance.com` and `dapi-mm.binance.com` — are dedicated infrastructure paths that serve the same API surface but with routing optimised for the lower-latency requirements of high-frequency market making.
+
+The SDK resolves the correct URL automatically when `useMMSubdomain: true` is set:
+
+| Client | Standard endpoint | Market maker endpoint |
+|---|---|---|
+| `USDMClient` | `https://fapi.binance.com` | `https://fapi-mm.binance.com` |
+| `CoinMClient` | `https://dapi.binance.com` | `https://dapi-mm.binance.com` |
+| `WebsocketClient` (USD-M) | Standard WS endpoint | MM WS endpoint |
+| `WebsocketClient` (COIN-M) | Standard WS endpoint | MM WS endpoint |
+
+<Note>
+  Market maker endpoints are available for USD-M and COIN-M futures only. `MainClient` (Spot), `PortfolioClient`, and testnet clients do not have corresponding market maker subdomains. Setting `useMMSubdomain: true` has no effect on those clients — they fall back to the standard endpoint silently.
+</Note>
+
+## Enabling Market Maker Endpoints
+
+Set `useMMSubdomain: true` in the constructor options of `USDMClient`, `CoinMClient`, or `WebsocketClient`:
+
+<CodeGroup>
+```typescript USDMClient (REST)
+import { USDMClient } from 'binance';
+
+const client = new USDMClient({
+  api_key: process.env.BINANCE_API_KEY,
+  api_secret: process.env.BINANCE_API_SECRET,
+
+  // Route all requests through the market maker subdomain
+  useMMSubdomain: true,
+
+  // Recommended: enable HTTP keep-alive to reduce per-request overhead
+  keepAlive: true,
+  keepAliveMsecs: 1000,
+});
+
+async function getAccountInfo() {
+  try {
+    const account = await client.getAccountInformation();
+    console.log('MM account can trade:', account.canTrade);
+
+    const positions = await client.getPositions({ symbol: 'BTCUSDT' });
+    console.log('Open positions:', positions.length);
+  } catch (e) {
+    console.error('MM REST error:', e);
+  }
+}
+
+getAccountInfo();
+```
+
+```typescript CoinMClient (REST)
+import { CoinMClient } from 'binance';
+
+const client = new CoinMClient({
+  api_key: process.env.BINANCE_API_KEY,
+  api_secret: process.env.BINANCE_API_SECRET,
+  useMMSubdomain: true,
+  keepAlive: true,
+});
+
+const account = await client.getAccountInformation();
+console.log('COIN-M MM account:', account.canTrade);
+```
+
+```typescript WebsocketClient
+import { WebsocketClient } from 'binance';
+
+const ws = new WebsocketClient({
+  api_key: process.env.BINANCE_API_KEY,
+  api_secret: process.env.BINANCE_API_SECRET,
+
+  // Route WebSocket connections through the MM endpoint
+  useMMSubdomain: true,
+  beautify: true,
+});
+
+ws.on('open', ({ wsKey, wsUrl }) => {
+  console.log(`MM WebSocket connected [${wsKey}]:`, wsUrl);
+});
+
+ws.on('formattedMessage', (data) => {
+  console.log('MM market data:', data);
+});
+
+ws.on('exception', console.error);
+ws.on('reconnecting', ({ wsKey }) => console.warn('MM WS reconnecting:', wsKey));
+ws.on('reconnected', ({ wsKey }) => console.info('MM WS reconnected:', wsKey));
+
+await ws.subscribeUsdFuturesUserDataStream();
+```
+</CodeGroup>
+
+## Compatibility with Other Options
+
+`useMMSubdomain` can be combined with other client options, with two important restrictions:
+
+- **Not compatible with `testnet: true`**: There are no market maker endpoints for testnet (`usdmtest`, `coinmtest`). If `testnet: true` is set, the MM URL lookup returns `undefined` and the client falls back to the standard testnet URL. Do not combine these options with the expectation of using MM endpoints.
+- **Not compatible with `demoTrading: true`**: Demo trading endpoints also do not have market maker variants. The same fallback behaviour applies.
+
+```typescript
+// ✅ Valid — production MM endpoints
+const client = new USDMClient({
+  api_key: process.env.BINANCE_API_KEY,
+  api_secret: process.env.BINANCE_API_SECRET,
+  useMMSubdomain: true,
+});
+
+// ❌ Avoid — testnet has no MM endpoints; useMMSubdomain is silently ignored
+const testnetClient = new USDMClient({
+  api_key: process.env.BINANCE_TESTNET_API_KEY,
+  api_secret: process.env.BINANCE_TESTNET_API_SECRET,
+  testnet: true,
+  useMMSubdomain: true, // has no effect on testnet
+});
+```
+
+## Best Practices for Market Making
+
+Following Binance's guidance and the SDK's capabilities, these practices are recommended for production market making integrations:
+
+<Steps>
+  <Step title="Use Ed25519 keys">
+    Ed25519 authentication is recommended for latency-sensitive integrations. With Ed25519, the WebSocket API can authenticate a session once at connection time rather than signing every individual request. This removes per-request signing overhead from the hot path. Pass your Ed25519 PEM private key as `api_secret` — the SDK detects the key type automatically.
+  </Step>
+  <Step title="Enable HTTP keep-alive for REST">
+    Set `keepAlive: true` on the REST client to reuse TCP connections. Each new connection involves a TLS handshake that adds latency. Keep-alive eliminates this overhead on subsequent requests from the same client instance.
+  </Step>
+  <Step title="Keep WebSocket connections alive">
+    Use the SDK's built-in heartbeat mechanism (enabled by default) to detect and recover from silent disconnections. Do not set `disableHeartbeat: true` in production. For critical paths, listen for `reconnecting` and `reconnected` events and reconcile state via REST on reconnect.
+  </Step>
+  <Step title="Verify eligibility before deploying">
+    The MM subdomain will reject connections from accounts that are not enrolled in the Liquidity Provider Program. Test connectivity with a simple public endpoint call (e.g. `client.getExchangeInfo()`) immediately after instantiating the MM client to confirm access before placing orders.
+  </Step>
+</Steps>
+
+```typescript
+import { USDMClient, WebsocketClient, DefaultLogger } from 'binance';
+
+// Custom logger for production monitoring
+const logger: typeof DefaultLogger = {
+  ...DefaultLogger,
+  trace: () => {},
+  info: (...p) => console.info(new Date().toISOString(), '[MM]', ...p),
+  error: (...p) => console.error(new Date().toISOString(), '[MM]', ...p),
+};
+
+// REST client with MM subdomain and keep-alive
+const restClient = new USDMClient({
+  api_key: process.env.BINANCE_API_KEY,
+  // Ed25519 PEM private key for session-level WS API auth
+  api_secret: process.env.BINANCE_API_SECRET,
+  useMMSubdomain: true,
+  keepAlive: true,
+  keepAliveMsecs: 1000,
+  recvWindow: 5000,
+});
+
+// Verify MM access on startup
+const exchangeInfo = await restClient.getExchangeInfo();
+console.log('MM REST API connected, symbols:', exchangeInfo.symbols.length);
+
+// WebSocket client with MM subdomain
+const wsClient = new WebsocketClient(
+  {
+    api_key: process.env.BINANCE_API_KEY,
+    api_secret: process.env.BINANCE_API_SECRET,
+    useMMSubdomain: true,
+    beautify: true,
+    recvWindow: 5000,
+  },
+  logger,
+);
+
+wsClient.on('reconnecting', ({ wsKey }) => {
+  console.warn(`MM WebSocket reconnecting: ${wsKey} — pausing order activity`);
+});
+
+wsClient.on('reconnected', async ({ wsKey }) => {
+  console.info(`MM WebSocket reconnected: ${wsKey} — reconciling state`);
+  const positions = await restClient.getPositions();
+  console.info('Positions after reconnect:', positions.length);
+});
+
+wsClient.on('exception', console.error);
+
+await wsClient.subscribeUsdFuturesUserDataStream();
+```

@@ -1,0 +1,325 @@
+---
+title: "Configure the Binance SDK Clients"
+sidebarTitle: "Configuration"
+description: "Learn every configuration option for REST and WebSocket clients in the Binance SDK, including timeouts, proxy, logging, beautification, and custom base URLs."
+---
+
+The Binance SDK exposes two sets of configuration options: `RestClientOptions` for the REST API clients (`MainClient`, `USDMClient`, `CoinMClient`, `PortfolioClient`) and `WSClientConfigurableOptions` for the `WebsocketClient`. Both share a number of environment-switching flags — `testnet`, `demoTrading`, and `useMMSubdomain` — but each also has options unique to its transport. Understanding what each option does and when to use it is the fastest way to get a production-grade integration off the ground.
+
+## REST Client Options
+
+Pass these options as the first argument to any REST client constructor. Every field is optional; the SDK applies sensible defaults for anything you omit.
+
+```typescript
+import { MainClient } from 'binance';
+
+const client = new MainClient({
+  api_key: process.env.BINANCE_API_KEY,
+  api_secret: process.env.BINANCE_API_SECRET,
+  recvWindow: 5000,
+  beautifyResponses: true,
+  filterUndefinedParams: true,
+  disableTimeSync: false,
+  syncIntervalMs: 3600000,
+});
+```
+
+### Authentication
+
+<ParamField path="api_key" type="string">
+  Your Binance API key. Required for all private (signed) endpoints. The SDK automatically adds this as the `X-MBX-APIKEY` header on every request.
+</ParamField>
+
+<ParamField path="api_secret" type="string">
+  Your Binance API secret. For HMAC keys this is the plain secret string. For RSA or Ed25519 keys, pass the PEM-encoded private key here — the SDK detects the key type automatically and switches signing algorithms accordingly.
+</ParamField>
+
+### Timing & Clock Sync
+
+<ParamField path="recvWindow" type="number" default="5000">
+  The maximum number of milliseconds a signed request is valid for after its timestamp is generated. Binance rejects requests outside this window. Default is `5000` (5 seconds). Increase this if you see `-1021 INVALID_TIMESTAMP` errors caused by high round-trip latency.
+</ParamField>
+
+<ParamField path="disableTimeSync" type="boolean" default="true">
+  When `false`, the SDK automatically fetches the Binance server time and computes a clock drift offset, then applies that offset to every signed request timestamp. Set this to `false` if your system clock is unreliable or if you're running in an environment where small clock skew regularly triggers timestamp errors. The default is `true` (sync disabled) to avoid the extra round-trip on startup.
+</ParamField>
+
+<ParamField path="syncIntervalMs" type="number | string" default="3600000">
+  How often the SDK re-syncs the time offset with Binance servers, in milliseconds. Default is `3600000` (1 hour). Only relevant when `disableTimeSync` is `false`.
+</ParamField>
+
+### Request Behaviour
+
+<ParamField path="strictParamValidation" type="boolean" default="false">
+  When `true`, the SDK throws an error if any parameter passed to a request is `undefined`. This catches accidental parameter omissions early in development. Defaults to `false`.
+</ParamField>
+
+<ParamField path="filterUndefinedParams" type="boolean" default="false">
+  When `true`, any request parameter whose value is `undefined` is silently stripped before the request is serialised and signed. Useful when you construct parameter objects with optional keys and want to avoid sending `undefined` values to the API.
+</ParamField>
+
+<ParamField path="parseExceptions" type="boolean" default="true">
+  When `true` (the default), the SDK post-processes API error responses and throws a structured error object containing `code`, `message`, `body`, `headers`, `requestUrl`, and `requestBody`. Set to `false` to receive the raw Axios error instead — this is only useful for advanced custom error handling.
+</ParamField>
+
+<ParamField path="beautifyResponses" type="boolean" default="false">
+  When `true`, the SDK passes every response through the built-in beautifier, which resolves number-like strings to `number` type and expands abbreviated single-letter keys into descriptive property names. Particularly useful when working with WebSocket-style response shapes returned by some REST endpoints.
+</ParamField>
+
+### Base URL Overrides
+
+<ParamField path="baseUrl" type="string">
+  Explicitly override the full base URL for all requests from this client. For example `'https://api2.binance.com'`. Takes precedence over `baseUrlKey`, `testnet`, and `demoTrading`.
+</ParamField>
+
+<ParamField path="baseUrlKey" type="BinanceBaseUrlKey">
+  Select one of the SDK's named base URLs by key (e.g. `'spot'`, `'usdm'`, `'coinm'`). This is an advanced option; most users do not need to set this directly.
+</ParamField>
+
+### Environment Switching
+
+<ParamField path="testnet" type="boolean" default="false">
+  When `true`, routes all requests to the Binance testnet endpoint for the active client type. Testnet credentials are separate from live credentials. Do not use testnet market data to evaluate strategy performance — the simulated orderbook is very different from live conditions.
+</ParamField>
+
+<ParamField path="demoTrading" type="boolean" default="false">
+  When `true`, routes all requests to Binance's demo trading endpoints. Demo trading uses real market data with simulated order execution — this is the recommended environment for strategy testing. Available for Spot (`MainClient`), USD-M (`USDMClient`), and COIN-M (`CoinMClient`) futures. Cannot be combined with `testnet` on the same client.
+</ParamField>
+
+<ParamField path="useMMSubdomain" type="boolean" default="false">
+  When `true`, routes futures requests through Binance's market maker subdomain (e.g. `fapi-mm.binance.com`). Only relevant for `USDMClient` and `CoinMClient`. Requires enrolment in a Binance Futures Liquidity Provider Program. Has no effect on Spot or testnet.
+</ParamField>
+
+### HTTP Keep-Alive
+
+<ParamField path="keepAlive" type="boolean">
+  When `true`, configures the underlying `https.Agent` with `keepAlive: true`, reusing TCP connections across requests to reduce per-request overhead. This is a Node.js-only feature; the webpack browser bundle skips it automatically.
+</ParamField>
+
+<ParamField path="keepAliveMsecs" type="number" default="1000">
+  When `keepAlive` is `true`, controls how often TCP keep-alive probes are sent on idle sockets, in milliseconds. The underlying default (from Node.js `https.Agent`) is `1000ms`. Only takes effect when `keepAlive` is also `true`.
+</ParamField>
+
+### Custom Signing
+
+<ParamField path="customSignMessageFn" type="(message: string, secret: string) => Promise<string>">
+  Provide your own request-signing function. The SDK calls this instead of its built-in Web Crypto signing routine. Useful if you need to use Node.js's `crypto.createHmac` (which can be faster than the Web Crypto API in some environments). See the `examples/` folder for a working demonstration.
+</ParamField>
+
+### Proxy Support
+
+The SDK uses [axios](https://axios-http.com) under the hood, so any Axios `AxiosRequestConfig` field is accepted via the second constructor argument. Pass proxy settings there:
+
+```typescript
+import { MainClient } from 'binance';
+
+const client = new MainClient(
+  {
+    api_key: process.env.BINANCE_API_KEY,
+    api_secret: process.env.BINANCE_API_SECRET,
+  },
+  {
+    // Axios request options
+    proxy: {
+      host: '127.0.0.1',
+      port: 8080,
+    },
+    timeout: 10000,
+  },
+);
+```
+
+---
+
+## WebSocket Client Options
+
+Pass these as the first argument to `WebsocketClient`. Many flags mirror their REST equivalents but apply to WebSocket connections instead.
+
+```typescript
+import { WebsocketClient } from 'binance';
+
+const ws = new WebsocketClient({
+  api_key: process.env.BINANCE_API_KEY,
+  api_secret: process.env.BINANCE_API_SECRET,
+  beautify: true,
+  pingInterval: 10000,
+  pongTimeout: 7500,
+  reconnectTimeout: 500,
+});
+```
+
+### Authentication
+
+<ParamField path="api_key" type="string">
+  Your Binance API key. Required when subscribing to private user data streams.
+</ParamField>
+
+<ParamField path="api_secret" type="string">
+  Your Binance API secret or PEM private key. The SDK automatically detects RSA and Ed25519 keys when a PEM string is provided. Ed25519 is recommended for WebSocket API sessions because it enables session-level authentication rather than per-request signing.
+</ParamField>
+
+### Response Beautification
+
+<ParamField path="beautify" type="boolean" default="false">
+  When `true`, incoming WebSocket events are passed through the beautifier before being emitted as `formattedMessage` and `formattedUserDataMessage` events. Abbreviated single-letter keys are expanded and number-like strings are converted to numbers.
+</ParamField>
+
+<ParamField path="beautifyWarnIfMissing" type="boolean">
+  When `true`, the beautifier logs a warning whenever it encounters an event field that is not in its expansion map. Useful during development to catch new or undocumented event fields.
+</ParamField>
+
+### Environment Switching
+
+<ParamField path="testnet" type="boolean" default="false">
+  Routes WebSocket connections to Binance's testnet endpoints. If you also have `demoTrading: true`, set this to `false` — do not enable both on the same client.
+</ParamField>
+
+<ParamField path="demoTrading" type="boolean" default="false">
+  Routes WebSocket connections to Binance's demo trading WebSocket endpoints. Uses real market data with simulated order execution. Set `testnet` to `false` when using this.
+</ParamField>
+
+<ParamField path="useMMSubdomain" type="boolean" default="false">
+  Routes futures WebSocket connections through the market maker subdomain. Requires Futures Liquidity Provider Program eligibility.
+</ParamField>
+
+### Heartbeat & Reconnection
+
+<ParamField path="disableHeartbeat" type="boolean" default="false">
+  When `true`, the SDK's automatic ping/pong heartbeat mechanism is disabled. Not recommended — the heartbeat is how the SDK detects silent disconnections.
+</ParamField>
+
+<ParamField path="pingInterval" type="number">
+  How often the SDK checks if the WebSocket connection is still alive, in milliseconds.
+</ParamField>
+
+<ParamField path="pongTimeout" type="number">
+  How long the SDK waits for a pong reply after sending a ping before treating the connection as dead, in milliseconds.
+</ParamField>
+
+<ParamField path="reconnectTimeout" type="number">
+  Delay in milliseconds before the SDK attempts to re-establish a dropped connection.
+</ParamField>
+
+<ParamField path="recvWindow" type="number">
+  The `recvWindow` applied when generating a private WebSocket API request signature. In milliseconds — for example `5000` equals 5 seconds.
+</ParamField>
+
+---
+
+## Custom Logging
+
+The SDK ships a `DefaultLogger` that is used internally by `WebsocketClient`. You can replace it with any object that implements the same `trace`, `info`, and `error` methods — including structured loggers like [pino](https://getpino.io) or [winston](https://github.com/winstonjs/winston).
+
+```typescript
+import { DefaultLogger, WebsocketClient } from 'binance';
+
+// Spread DefaultLogger to keep any methods you don't override
+const customLogger: typeof DefaultLogger = {
+  ...DefaultLogger,
+
+  // Silence noisy ping/pong trace events
+  trace: () => {},
+
+  // Add timestamps to info logs
+  info: (...params) => {
+    console.info(new Date().toISOString(), ...params);
+  },
+
+  // Add timestamps and forward to your error monitoring
+  error: (...params) => {
+    console.error(new Date().toISOString(), ...params);
+    // myErrorMonitor.captureException(params);
+  },
+};
+
+const ws = new WebsocketClient(
+  {
+    api_key: process.env.BINANCE_API_KEY,
+    api_secret: process.env.BINANCE_API_SECRET,
+    beautify: true,
+  },
+  customLogger,  // pass as second argument
+);
+```
+
+<Tip>
+  The `trace` level is intentionally a no-op in `DefaultLogger` — it would generate an enormous amount of noise from ping/pong events. Only enable it while actively debugging a connection issue.
+</Tip>
+
+---
+
+## Complete Configuration Example
+
+The following example shows a fully-configured REST client alongside a WebSocket client for production use:
+
+<CodeGroup>
+```typescript REST Client
+import { USDMClient } from 'binance';
+
+const client = new USDMClient(
+  {
+    // Auth
+    api_key: process.env.BINANCE_API_KEY,
+    api_secret: process.env.BINANCE_API_SECRET,
+
+    // Timing
+    recvWindow: 5000,
+    disableTimeSync: false,
+    syncIntervalMs: 3600000,
+
+    // Request behaviour
+    strictParamValidation: false,
+    filterUndefinedParams: true,
+    parseExceptions: true,
+    beautifyResponses: true,
+
+    // Environment (pick one)
+    // demoTrading: true,
+    // testnet: true,
+
+    // Performance
+    keepAlive: true,
+    keepAliveMsecs: 1000,
+  },
+  {
+    // Axios options
+    timeout: 10000,
+  },
+);
+```
+
+```typescript WebSocket Client
+import { DefaultLogger, WebsocketClient } from 'binance';
+
+const customLogger: typeof DefaultLogger = {
+  ...DefaultLogger,
+  trace: () => {},
+  info: (...p) => console.info(new Date().toISOString(), ...p),
+  error: (...p) => console.error(new Date().toISOString(), ...p),
+};
+
+const ws = new WebsocketClient(
+  {
+    // Auth
+    api_key: process.env.BINANCE_API_KEY,
+    api_secret: process.env.BINANCE_API_SECRET,
+
+    // Beautify events
+    beautify: true,
+
+    // Heartbeat
+    pingInterval: 10000,
+    pongTimeout: 7500,
+    reconnectTimeout: 500,
+
+    // Timing for WS API signing
+    recvWindow: 5000,
+
+    // Environment (pick one)
+    // demoTrading: true,
+    // testnet: true,
+  },
+  customLogger,
+);
+```
+</CodeGroup>

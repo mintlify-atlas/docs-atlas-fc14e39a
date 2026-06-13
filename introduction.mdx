@@ -1,0 +1,102 @@
+---
+title: "Binance Node.js SDK: REST & WebSocket API Client"
+sidebarTitle: "Introduction"
+description: "The binance npm package provides typed REST and WebSocket clients for every Binance product group, with auto-reconnection, HMAC/RSA/Ed25519 auth, and optional response beautification."
+---
+
+The `binance` npm package is a professional, production-grade Node.js and TypeScript SDK for the full Binance API surface. It handles request building, authentication, timestamp synchronization, WebSocket lifecycle management, and response parsing — so your code can stay focused on the trading logic you're building. Whether you need Spot market data, authenticated Futures orders, or a persistent WebSocket stream, every Binance product group is covered by a dedicated, strongly typed client.
+
+## What the SDK covers
+
+Binance exposes multiple distinct API families, each with its own endpoint prefix, subdomain, and account model. The SDK maps directly to those product groups:
+
+| Product group | REST client | Common usage |
+|---|---|---|
+| Spot, Margin, Wallet, Convert, Earn, Sub-accounts | `MainClient` | Spot trading, account data, wallet flows, transfers, savings |
+| USD-M Futures (`fapi/`) | `USDMClient` | USDT/USDC-margined futures, positions, orders |
+| COIN-M Futures (`dapi/`) | `CoinMClient` | Coin-margined futures, positions, orders |
+| Portfolio Margin (`papi/`) | `PortfolioClient` | Unified margin account, UM/CM/margin orders |
+| WebSocket streams | `WebsocketClient` | Public market data & private user data streams |
+| WebSocket API | `WebsocketAPIClient` | REST-like commands over persistent WebSocket connections |
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="Full TypeScript support" icon="code">
+    Every request parameter and API response is strongly typed. Type declarations are bundled — no separate `@types` package required.
+  </Card>
+  <Card title="All auth mechanisms" icon="lock">
+    HMAC, RSA, and Ed25519 are all supported. Pass a PEM private key as `api_secret` and the SDK auto-detects the key type.
+  </Card>
+  <Card title="Smart WebSocket persistence" icon="wifi">
+    Automatic heartbeats, listen-key refresh, reconnection, and topic resubscription. Emits `reconnected` so you can reconcile state via REST.
+  </Card>
+  <Card title="Response beautification" icon="sparkles">
+    Enable `beautifyResponses: true` to parse known float-strings into numbers across REST responses and WebSocket events.
+  </Card>
+  <Card title="Demo & testnet support" icon="flask">
+    Switch to Binance demo trading (real market data, simulated fills) or testnet with a single constructor option.
+  </Card>
+  <Card title="Browser bundle included" icon="globe">
+    A pre-built `dist/` bundle ships with the package for frontend and webpack-based projects.
+  </Card>
+</CardGroup>
+
+## Installation
+
+```bash
+npm install binance
+```
+
+The package supports both ESM `import` and CommonJS `require()` out of the box.
+
+<Tip>
+  The package ships a `llms.txt` file in its root. If you're building with AI coding assistants, point your LLM at that file — it contains an AI-optimised index of every function and its parameters.
+</Tip>
+
+## Exported clients at a glance
+
+```typescript
+import {
+  MainClient,       // Spot, Margin, Wallet, Convert, Earn, Sub-accounts
+  USDMClient,       // USD-M Futures
+  CoinMClient,      // COIN-M Futures
+  PortfolioClient,  // Portfolio Margin
+  WebsocketClient,  // Streaming subscriptions (public + user data)
+  WebsocketAPIClient, // Promise-based WebSocket API commands
+} from 'binance';
+```
+
+All six classes accept the same `{ api_key, api_secret }` constructor shape. Public market data endpoints work without credentials — just omit the keys.
+
+<Note>
+  API credentials are scoped per environment. Live, demo trading, Spot testnet, and Futures testnet credentials are separate. Never mix them in the same client instance.
+</Note>
+
+## Navigation
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Install the SDK, make your first public call, and place a test order in under 5 minutes.
+  </Card>
+  <Card title="Authentication" icon="key" href="/authentication">
+    Configure HMAC, RSA, or Ed25519 auth and learn credential best practices.
+  </Card>
+</CardGroup>
+
+## Related links
+
+<CardGroup cols={2}>
+  <Card title="GitHub repository" icon="github" href="https://github.com/tiagosiebler/binance">
+    Source code, examples folder, and issue tracker.
+  </Card>
+  <Card title="npm package" icon="box" href="https://www.npmjs.com/package/binance">
+    Latest release, version history, and bundle size.
+  </Card>
+  <Card title="Binance API docs" icon="book" href="https://developers.binance.com/en">
+    Official Binance REST API and WebSocket documentation.
+  </Card>
+  <Card title="Endpoint function map" icon="map" href="https://github.com/tiagosiebler/binance/blob/master/docs/endpointFunctionList.md">
+    Full mapping of every Binance endpoint to its SDK method name.
+  </Card>
+</CardGroup>

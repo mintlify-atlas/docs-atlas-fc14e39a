@@ -1,0 +1,245 @@
+---
+title: "WebsocketAPIClient: WebSocket API Method Reference"
+sidebarTitle: "WebsocketAPIClient"
+description: "Method reference for WebsocketAPIClient, providing a promise-based interface over the Binance WebSocket API for low-latency order management."
+---
+
+`WebsocketAPIClient` wraps the Binance WebSocket API (WS API) with a promise-based interface, routing each call over a persistent WebSocket connection instead of REST. This reduces per-request latency compared to HTTP, especially for order placement and cancellation. Every method returns a typed `Promise<WSAPIResponse<T>>` that resolves when the exchange replies over the WebSocket. The client handles authentication, connection management, and optional automatic reconnection internally.
+
+<Note>
+  The WebSocket API is distinct from WebSocket market data streams. It is used for placing orders, querying account data, and market snapshots — not for subscribing to live event streams. For live streams, use [`WebsocketClient`](/api-reference/websocket-client) instead.
+</Note>
+
+## Constructor
+
+```typescript
+import { WebsocketAPIClient } from 'binance';
+
+const wsApiClient = new WebsocketAPIClient({
+  api_key: 'YOUR_API_KEY',
+  api_secret: 'YOUR_API_SECRET',
+});
+```
+
+<ParamField path="options" type="WSClientConfigurableOptions & Partial<WSAPIClientConfigurableOptions>">
+  Configuration merging the standard `WSClientConfigurableOptions` (shared with `WebsocketClient`) with the following WS-API-specific fields:
+
+  | Option | Type | Default | Description |
+  |---|---|---|---|
+  | `resubscribeUserDataStreamAfterReconnect` | `boolean` | `true` | Automatically resubscribe to user data stream after reconnect. |
+  | `resubscribeUserDataStreamDelaySeconds` | `number` | `2` | Delay in seconds before resubscribing after reconnect. |
+  | `attachEventListeners` | `boolean` | `true` | Log high-level connection lifecycle events to console. |
+  | `muteLatencyWarning` | `boolean` | `false` | Suppress the HMAC/RSA latency warning. Set `true` if using Ed25519 keys or if you acknowledge the tradeoff. |
+  | `keepMarginListenTokenRefreshed` | `boolean` | `true` | Proactively refresh the margin listen token before expiry. |
+</ParamField>
+
+<ParamField path="logger" type="DefaultLogger">
+  Optional custom logger. Defaults to the built-in `DefaultLogger`.
+</ParamField>
+
+<Tip>
+  For the lowest latency, use Ed25519 signing keys. HMAC and RSA keys require per-request signing which adds overhead. The SDK will warn you if it detects HMAC/RSA keys unless `muteLatencyWarning: true` is set.
+</Tip>
+
+---
+
+## Utility Methods
+
+| Method | Returns | Description |
+|---|---|---|
+| `getWSClient()` | `WebsocketClient` | Returns the underlying `WebsocketClient` instance. Use this to attach event listeners (`.on('formattedMessage', ...)`) or access lower-level connection controls. |
+| `setTimeOffsetMs(newOffset)` | `void` | Set the time offset (in milliseconds) applied to signed requests. Useful when the local clock differs from the Binance server clock. |
+| `disconnectAll()` | `Promise<void>` | Gracefully close all active WebSocket API connections. |
+
+---
+
+## SPOT — General
+
+| Method | Request Type | Response Type | Description |
+|---|---|---|---|
+| `testSpotConnectivity(wsKey?)` | — | `WSAPIResponse<object>` | Test connectivity to the Spot WebSocket API endpoint. |
+| `getSpotServerTime(wsKey?)` | — | `WSAPIResponse<WSAPIServerTime>` | Get the current Binance server time. |
+| `getSpotExchangeInfo(params?, wsKey?)` | `WSAPIExchangeInfoRequest` | `WSAPIResponse<ExchangeInfo>` | Query exchange trading rules, rate limits, and symbol information. |
+| `getSpotSessionStatus(wsKey?)` | — | `WSAPIResponse<WSAPISessionStatus>` | Query the authentication status of the current WebSocket session. |
+
+---
+
+## SPOT — Market Data
+
+| Method | Request Type | Response Type | Description |
+|---|---|---|---|
+| `getSpotOrderBook(params, wsKey?)` | `WSAPIOrderBookRequest` | `WSAPIResponse<WSAPIOrderBook>` | Retrieve the current order book snapshot for a symbol. |
+| `getSpotRecentTrades(params, wsKey?)` | `WSAPITradesRecentRequest` | `WSAPIResponse<WSAPITrade[]>` | Get the most recent trades for a symbol. |
+| `getSpotHistoricalTrades(params, wsKey?)` | `WSAPITradesHistoricalRequest` | `WSAPIResponse<WSAPITrade[]>` | Get older trades for a symbol starting from a given trade ID. |
+| `getSpotHistoricalBlockTrades(params, wsKey?)` | `WSAPIBlockTradesHistoricalRequest` | `WSAPIResponse<WSAPIBlockTrade[]>` | Get historical block trades. |
+| `getSpotAggregateTrades(params, wsKey?)` | `WSAPITradesAggregateRequest` | `WSAPIResponse<WSAPIAggregateTrade[]>` | Get aggregate trades compressed into single records per price level. |
+| `getSpotKlines(params, wsKey?)` | `WSAPIKlinesRequest` | `WSAPIResponse<WSAPIKline[]>` | Get candlestick (kline) data for a symbol and interval. |
+| `getSpotUIKlines(params, wsKey?)` | `WSAPIKlinesRequest` | `WSAPIResponse<WSAPIKline[]>` | Get UI-optimized kline data (same shape as `getSpotKlines`). |
+| `getSpotAveragePrice(params, wsKey?)` | `WSAPIAvgPriceRequest` | `WSAPIResponse<WSAPIAvgPrice>` | Get the current average price for a symbol. |
+| `getSpotExecutionRules(params?, wsKey?)` | `WSAPIExecutionRulesRequest` | `WSAPIResponse<SpotExecutionRulesResponse>` | Query execution rules such as `PRICE_RANGE` for symbols. |
+| `getSpotReferencePrice(params, wsKey?)` | `WSAPIReferencePriceRequest` | `WSAPIResponse<SpotReferencePriceResult>` | Get the reference price for a symbol. |
+| `getSpotReferencePriceCalculation(params, wsKey?)` | `WSAPIReferencePriceCalculationRequest` | `WSAPIResponse<SpotReferencePriceCalculationResponse>` | Get the method used to calculate the reference price for a symbol. |
+| `getSpot24hrTicker(params?, wsKey?)` | `WSAPITicker24hrRequest` | `WSAPIResponse<WSAPIFullTicker \| WSAPIMiniTicker \| WSAPIFullTicker[] \| WSAPIMiniTicker[]>` | Get 24-hour rolling window price change statistics. |
+| `getSpotTradingDayTicker(params, wsKey?)` | `WSAPITickerTradingDayRequest` | `WSAPIResponse<WSAPIFullTicker \| WSAPIMiniTicker \| ...[]>` | Get price change statistics for a trading day. |
+| `getSpotTicker(params, wsKey?)` | `WSAPITickerRequest` | `WSAPIResponse<WSAPIFullTicker \| WSAPIMiniTicker \| ...[]>` | Get rolling window price change statistics with a custom window. |
+| `getSpotSymbolPriceTicker(params?, wsKey?)` | `WSAPITickerPriceRequest` | `WSAPIResponse<WSAPIPriceTicker \| WSAPIPriceTicker[]>` | Get the latest market price for a symbol or all symbols. |
+| `getSpotSymbolOrderBookTicker(params?, wsKey?)` | `WSAPITickerBookRequest` | `WSAPIResponse<WSAPIBookTicker \| WSAPIBookTicker[]>` | Get the current best bid/ask price and quantity. |
+
+---
+
+## SPOT — Order Management
+
+<Note>
+  All trading methods require `api_key` and `api_secret` to be set. Authentication is handled automatically by the client.
+</Note>
+
+| Method | Request Type | Response Type | Description |
+|---|---|---|---|
+| `submitNewSpotOrder(params, wsKey?)` | `WSAPINewSpotOrderRequest` | `WSAPIResponse<WSAPISpotOrderResponse>` | Place a new spot order. |
+| `testSpotOrder(params, wsKey?)` | `WSAPIOrderTestRequest` | `WSAPIResponse<WSAPIOrderTestResponse \| WSAPIOrderTestWithCommission>` | Validate order parameters and signature without sending to the matching engine. |
+| `getSpotOrderStatus(params, wsKey?)` | `WSAPIOrderStatusRequest` | `WSAPIResponse<WSAPIOrder>` | Check the execution status of an order. |
+| `cancelSpotOrder(params, wsKey?)` | `WSAPIOrderCancelRequest` | `WSAPIResponse<WSAPIOrderCancel>` | Cancel an active order. |
+| `cancelReplaceSpotOrder(params, wsKey?)` | `WSAPIOrderCancelReplaceRequest` | `WSAPIResponse<WSAPIOrderCancelReplaceResponse>` | Cancel an existing order and immediately place a new one atomically. |
+| `amendSpotOrderKeepPriority(params, wsKey?)` | `WSAPIOrderAmendKeepPriorityRequest` | `WSAPIResponse<SpotAmendKeepPriorityResult>` | Reduce the quantity of an open order while preserving queue priority. |
+| `getSpotOpenOrders(params, wsKey?)` | `WSAPIOpenOrdersStatusRequest` | `WSAPIResponse<WSAPIOrder[]>` | Query all open orders for a symbol. |
+| `cancelAllSpotOpenOrders(params, wsKey?)` | `WSAPIOpenOrdersCancelAllRequest` | `WSAPIResponse<(WSAPIOrderCancel \| WSAPIOrderListCancelResponse)[]>` | Cancel all open orders on a symbol, including order lists. |
+
+### SPOT — Order Lists
+
+| Method | Request Type | Description |
+|---|---|---|
+| `placeSpotOrderList(params, wsKey?)` | `WSAPIOrderListPlaceRequest` | Place a legacy order list (deprecated; prefer `placeSpotOCOOrderList`). |
+| `placeSpotOCOOrderList(params, wsKey?)` | `WSAPIOrderListPlaceOCORequest` | Place an OCO (One-Cancels-the-Other) order list. |
+| `placeSpotOTOOrderList(params, wsKey?)` | `WSAPIOrderListPlaceOTORequest` | Place an OTO (One-Triggers-the-Other) order list. |
+| `placeSpotOTOCOOrderList(params, wsKey?)` | `WSAPIOrderListPlaceOTOCORequest` | Place an OTOCO (One-Triggers-One-Cancels-the-Other) order list. |
+| `placeSpotOPOOrderList(params, wsKey?)` | `WSAPIOrderListPlaceOPORequest` | Place an OPO (One-Pays-the-Other) order list. |
+| `placeSpotOPOCOOrderList(params, wsKey?)` | `WSAPIOrderListPlaceOPOCORequest` | Place an OPOCO (One-Pays-One-Cancels-the-Other) order list. |
+| `getSpotOrderListStatus(params, wsKey?)` | `WSAPIOrderListStatusRequest` | Query the execution status of an order list. |
+| `cancelSpotOrderList(params, wsKey?)` | `WSAPIOrderListCancelRequest` | Cancel an active order list. |
+| `getSpotOpenOrderLists(params, wsKey?)` | `WSAPIRecvWindowTimestamp` | Query all open order lists. |
+
+### SPOT — SOR Orders
+
+| Method | Description |
+|---|---|
+| `placeSpotSOROrder(params, wsKey?)` | Place a new order using Smart Order Routing (SOR). Supports `LIMIT` and `MARKET` only. |
+| `testSpotSOROrder(params, wsKey?)` | Test SOR order placement without submitting to the matching engine. |
+
+---
+
+## SPOT — Account
+
+| Method | Request Type | Response Type | Description |
+|---|---|---|---|
+| `getSpotAccountInformation(params, wsKey?)` | `WSAPIAccountInformationRequest` | `WSAPIResponse<WSAPIAccountInformation>` | Query account details including balances. Weight: 20. |
+| `getSpotOrderRateLimits(params, wsKey?)` | `WSAPIRecvWindowTimestamp` | `WSAPIResponse<WSAPIRateLimit[]>` | Query current unfilled order count across all rate limit intervals. Weight: 40. |
+| `getSpotAllOrders(params, wsKey?)` | `WSAPIAllOrdersRequest` | `WSAPIResponse<WSAPIOrder[]>` | Query all orders (active, cancelled, or filled) filtered by time range. Weight: 20. |
+| `getSpotAllOrderLists(params, wsKey?)` | `WSAPIAllOrderListsRequest` | `WSAPIResponse<WSAPIOrderListStatusResponse[]>` | Query all order lists filtered by time range. Weight: 20. |
+| `getSpotMyTrades(params, wsKey?)` | `WSAPIMyTradesRequest` | `WSAPIResponse<WSAPITrade[]>` | Query your trades filtered by time range. Weight: 20. |
+| `getSpotPreventedMatches(params, wsKey?)` | `WSAPIMyPreventedMatchesRequest` | `WSAPIResponse<WSAPIPreventedMatch[]>` | List orders expired due to self-trade prevention (STP). |
+| `getSpotAllocations(params, wsKey?)` | `WSAPIMyAllocationsRequest` | `WSAPIResponse<WSAPIAllocation[]>` | Retrieve allocations resulting from SOR order placement. |
+| `getSpotAccountCommission(params, wsKey?)` | `WSAPIAccountCommissionWSAPIRequest` | `WSAPIResponse<WSAPIAccountCommission>` | Get current account commission rates. Weight: 20. |
+
+---
+
+## FUTURES — Market Data
+
+| Method | Request Type | Response Type | Description |
+|---|---|---|---|
+| `getFuturesOrderBook(params)` | `WSAPIFuturesOrderBookRequest` | `WSAPIResponse<WSAPIFuturesOrderBook>` | Get the current order book for a USD-M Futures symbol. |
+| `getFuturesSymbolPriceTicker(params?)` | `WSAPIFuturesTickerPriceRequest` | `WSAPIResponse<WSAPIFuturesPriceTicker \| WSAPIFuturesPriceTicker[]>` | Get the latest price for a futures symbol or all symbols. |
+| `getFuturesSymbolOrderBookTicker(params?)` | `WSAPIFuturesTickerBookRequest` | `WSAPIResponse<WSAPIFuturesBookTicker \| WSAPIFuturesBookTicker[]>` | Get the best bid/ask for a futures symbol or all symbols. |
+
+---
+
+## FUTURES — Order Management
+
+These methods accept a `market` parameter (`'usdm'` or `'coinm'`) to target the correct futures product group.
+
+| Method | Parameters | Description |
+|---|---|---|
+| `submitNewFuturesOrder(market, params)` | `market: 'usdm' \| 'coinm'`, `WSAPINewFuturesOrderRequest` | Submit a new futures order for USD-M or COIN-M. |
+| `modifyFuturesOrder(market, params)` | `market: 'usdm' \| 'coinm'`, `WSAPIFuturesOrderModifyRequest` | Modify an existing futures order. |
+| `cancelFuturesOrder(market, params)` | `market: 'usdm' \| 'coinm'`, `WSAPIFuturesOrderCancelRequest` | Cancel a futures order. |
+| `getFuturesOrderStatus(market, params)` | `market: 'usdm' \| 'coinm'`, `WSAPIFuturesOrderStatusRequest` | Query futures order status. |
+| `getFuturesPosition(market, params)` | `market: 'usdm' \| 'coinm'`, `WSAPIFuturesPositionRequest` | Get current position information. |
+| `getFuturesPositionV2(params)` | `WSAPIFuturesPositionV2Request` | Get current position information (V2, USD-M only). |
+| `submitNewFuturesAlgoOrder(params)` | `WSAPINewFuturesAlgoOrderRequest` | Submit a new USD-M Futures algo order (TWAP/VP). |
+| `cancelFuturesAlgoOrder(params)` | `WSAPIFuturesAlgoOrderCancelRequest` | Cancel an active USD-M Futures algo order. |
+
+---
+
+## FUTURES — Account
+
+| Method | Parameters | Description |
+|---|---|---|
+| `getFuturesAccountBalanceV2(params)` | `WSAPIRecvWindowTimestamp` | Get USD-M Futures account balance information (V2). |
+| `getFuturesAccountBalance(market, params)` | `market: 'usdm' \| 'coinm'`, `WSAPIRecvWindowTimestamp` | Get account balance for USD-M or COIN-M Futures. |
+| `getFuturesAccountStatusV2(params)` | `WSAPIRecvWindowTimestamp` | Get detailed USD-M Futures account information (V2). |
+| `getFuturesAccountStatus(market, params)` | `market: 'usdm' \| 'coinm'`, `WSAPIRecvWindowTimestamp` | Get detailed account information for USD-M or COIN-M Futures. |
+
+---
+
+## User Data Stream
+
+The `WebsocketAPIClient` provides a higher-level method to manage user data subscriptions over the WS API connection (no traditional listen-key polling required for Spot).
+
+| Method | Parameters | Description |
+|---|---|---|
+| `subscribeUserDataStream(wsKey)` | `wsKey: WSAPIWsKey` | Subscribe to the user data stream on the given WS API connection. Automatically resubscribes after reconnect. |
+| `unsubscribeUserDataStream(wsKey)` | `wsKey: WSAPIWsKey` | Unsubscribe from the user data stream and cancel automatic resubscription. |
+| `startUserDataStreamForKey(params, wsKey?)` | `{ apiKey: string }` | Start a user data stream using the legacy listen-key workflow. |
+| `pingUserDataStreamForKey(params, wsKey?)` | `WSAPIUserDataListenKeyRequest` | Ping an active listen key to prevent expiry. |
+| `stopUserDataStreamForKey(params, wsKey?)` | `WSAPIUserDataListenKeyRequest` | Stop a listen-key user data stream. |
+
+---
+
+## Code Example
+
+```typescript
+import { WebsocketAPIClient } from 'binance';
+
+const wsApiClient = new WebsocketAPIClient({
+  api_key: 'YOUR_API_KEY',
+  api_secret: 'YOUR_API_SECRET',
+});
+
+// Listen to the underlying WebSocket client events
+wsApiClient.getWSClient().on('exception', (err) => {
+  console.error('WS API exception:', err);
+});
+
+async function main() {
+  // Fetch order book snapshot
+  const orderBook = await wsApiClient.getSpotOrderBook({ symbol: 'BTCUSDT', limit: 10 });
+  console.log('Order book asks:', orderBook.result.asks.slice(0, 3));
+
+  // Place a spot market order
+  const order = await wsApiClient.submitNewSpotOrder({
+    symbol: 'BTCUSDT',
+    side: 'BUY',
+    type: 'MARKET',
+    quoteOrderQty: 20,
+    timestamp: Date.now(),
+  });
+  console.log('Order placed:', order.result.orderId);
+
+  // Query account information
+  const account = await wsApiClient.getSpotAccountInformation({
+    timestamp: Date.now(),
+  });
+  console.log(
+    'BTC balance:',
+    account.result.balances.find((b) => b.asset === 'BTC'),
+  );
+
+  // Subscribe to user data stream for live order updates
+  await wsApiClient.subscribeUserDataStream('mainWSAPI');
+
+  wsApiClient.getWSClient().on('formattedUserDataMessage', (data) => {
+    console.log('User data event:', data.eventType);
+  });
+}
+
+main();
+```

@@ -1,0 +1,273 @@
+---
+title: "MainClient: Spot, Margin & Wallet REST API"
+sidebarTitle: "MainClient"
+description: "MainClient covers Binance Spot, Cross/Isolated Margin, Wallet, Convert, Earn, Sub-accounts, Auto-Invest, Staking, Mining, and Loans via the REST API."
+---
+
+`MainClient` is the primary REST client for Binance's core product suite. It targets the `api*.binance.com` family of subdomains and provides typed methods for Spot trading, Cross and Isolated Margin, Wallet operations, Convert, Simple Earn, Auto-Invest, Dual Investment, Staking, Mining, Crypto Loans, VIP Loans, NFTs, C2C, sub-account management, and more. If you are working with Spot or Margin markets — or any non-futures product — `MainClient` is the class you need.
+
+## Installation
+
+<Steps>
+  <Step title="Install the package">
+    ```bash
+    npm install binance
+    ```
+  </Step>
+  <Step title="Import MainClient">
+    ```typescript
+    import { MainClient } from 'binance';
+    // CommonJS: const { MainClient } = require('binance');
+    ```
+  </Step>
+  <Step title="Instantiate the client">
+    ```typescript
+    const client = new MainClient({
+      api_key: process.env.BINANCE_API_KEY,
+      api_secret: process.env.BINANCE_API_SECRET,
+    });
+    ```
+  </Step>
+</Steps>
+
+## Constructor Options
+
+The `MainClient` constructor accepts an optional `RestClientOptions` object followed by an optional Axios request-config for low-level HTTP customisation.
+
+```typescript
+const client = new MainClient(
+  restClientOptions,  // RestClientOptions (optional)
+  requestOptions,     // AxiosRequestConfig (optional)
+);
+```
+
+<ParamField body="api_key" type="string">
+  Your Binance API key. Required for all authenticated (private) endpoints.
+</ParamField>
+
+<ParamField body="api_secret" type="string">
+  Your Binance API secret. Required for HMAC-signed requests. Pass an RSA or Ed25519 private key here — the SDK detects the key type automatically.
+</ParamField>
+
+<ParamField body="beautifyResponses" type="boolean" default="false">
+  When `true`, the SDK parses numeric strings in responses into JavaScript numbers for well-known fields.
+</ParamField>
+
+<ParamField body="testnet" type="boolean" default="false">
+  Routes requests to `https://testnet.binance.vision`. Useful for development and automated testing.
+</ParamField>
+
+<ParamField body="demoTrading" type="boolean" default="false">
+  Routes requests to Binance's Demo Trading environment. This uses **real market data** with simulated order execution — ideal for strategy testing.
+</ParamField>
+
+<Tip>
+  Prefer `demoTrading: true` over `testnet: true` for strategy validation. The Demo Trading environment mirrors live market data, while the Testnet uses simulated prices that diverge significantly from real markets.
+</Tip>
+
+## Method Categories
+
+### Market Data
+
+Public endpoints — no API key required.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `testConnectivity()` | `GET api/v3/ping` | Test connectivity to the REST API |
+| `getExchangeInfo(params?)` | `GET api/v3/exchangeInfo` | Exchange trading rules and symbol info |
+| `getOrderBook(params)` | `GET api/v3/depth` | Order book depth for a symbol |
+| `getRecentTrades(params)` | `GET api/v3/trades` | Recent trades list |
+| `getAggregateTrades(params)` | `GET api/v3/aggTrades` | Compressed aggregate trade list |
+| `getKlines(params)` | `GET api/v3/klines` | Kline/candlestick data |
+| `getUIKlines(params)` | `GET api/v3/uiKlines` | UI-optimised kline data |
+| `getAvgPrice(params)` | `GET api/v3/avgPrice` | Current average price |
+| `get24hrChangeStatistics(params?)` | `GET api/v3/ticker/24hr` | 24-hour rolling window statistics |
+| `getSymbolPriceTicker(params?)` | `GET api/v3/ticker/price` | Latest price for a symbol or all symbols |
+| `getSymbolOrderBookTicker(params?)` | `GET api/v3/ticker/bookTicker` | Best bid/ask price and quantity |
+| `getRollingWindowTicker(params)` | `GET api/v3/ticker` | Rolling window price change statistics |
+| `getTradingDayTicker(params)` | `GET api/v3/ticker/tradingDay` | Trading day price change statistics |
+
+### Order Management
+
+Authenticated endpoints — require `api_key` and `api_secret`.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `submitNewOrder(params)` | `POST api/v3/order` | Place a new Spot order |
+| `testNewOrder(params)` | `POST api/v3/order/test` | Test order placement without execution |
+| `getOrder(params)` | `GET api/v3/order` | Query status of an order |
+| `cancelOrder(params)` | `DELETE api/v3/order` | Cancel an active order |
+| `cancelAllSymbolOrders(params)` | `DELETE api/v3/openOrders` | Cancel all open orders for a symbol |
+| `replaceOrder(params)` | `POST api/v3/order/cancelReplace` | Cancel and replace an order atomically |
+| `getOpenOrders(params?)` | `GET api/v3/openOrders` | Get all open orders |
+| `getAllOrders(params)` | `GET api/v3/allOrders` | Full order history for a symbol |
+
+### Order Lists (OCO / OTO / OTOCO)
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `submitNewOCO(params)` | `POST api/v3/order/oco` | Place an OCO (One-Cancels-Other) order |
+| `submitNewOrderList(params)` | `POST api/v3/orderList/oco` | Place a new OCO order list |
+| `submitNewOrderListOTO(params)` | `POST api/v3/orderList/oto` | Place an OTO (One-Triggers-Other) order list |
+| `submitNewOrderListOTOCO(params)` | `POST api/v3/orderList/otoco` | Place an OTOCO order list |
+| `submitNewOrderListOPO(params)` | `POST api/v3/orderList/opo` | Place an OPO order list |
+| `submitNewOrderListOPOCO(params)` | `POST api/v3/orderList/opoco` | Place an OPOCO order list |
+| `cancelOCO(params)` | `DELETE api/v3/orderList` | Cancel an order list |
+| `getOCO(params)` | `GET api/v3/orderList` | Query a specific order list |
+| `getAllOCO(params?)` | `GET api/v3/allOrderList` | All order lists for the account |
+| `getAllOpenOCO()` | `GET api/v3/openOrderList` | All open order lists |
+
+### Account
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `getAccountInformation()` | `GET api/v3/account` | Account balances and permissions |
+| `getAccountTradeList(params)` | `GET api/v3/myTrades` | Trade history for a symbol |
+| `getCommissionRates(params)` | `GET api/v3/account/commission` | Commission rates for a symbol |
+| `getBalances()` | `GET sapi/v1/capital/config/getall` | All coin balances with wallet info |
+
+### Margin Trading
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `getCrossMarginCollateralRatio()` | `GET sapi/v1/margin/crossMarginCollateralRatio` | Cross-margin collateral ratios |
+| `getMarginAccountDetails(params?)` | `GET sapi/v1/margin/account` | Cross-margin account details |
+| `submitMarginAccountBorrowRepay(params)` | `POST sapi/v1/margin/borrow-repay` | Borrow or repay margin assets |
+| `getMarginAccountBorrowRepayRecords(params)` | `GET sapi/v1/margin/borrow-repay` | Borrow/repay history |
+| `submitNewMarginOrder(params)` | `POST sapi/v1/margin/order` | Place a margin order |
+| `cancelMarginOrder(params)` | `DELETE sapi/v1/margin/order` | Cancel a margin order |
+| `getIsolatedMarginAccountInfo(params?)` | `GET sapi/v1/margin/isolated/account` | Isolated margin account details |
+
+## Code Examples
+
+<CodeGroup>
+```typescript Public Market Data
+import { MainClient } from 'binance';
+
+const client = new MainClient();
+
+async function fetchMarketData() {
+  // Single-symbol ticker
+  const ticker = await client.get24hrChangeStatistics({ symbol: 'BTCUSDT' });
+  console.log('24hr ticker:', ticker);
+
+  // All tickers at once
+  const allTickers = await client.get24hrChangeStatistics();
+  console.log(`Fetched ${allTickers.length} tickers`);
+
+  // Exchange info (trading rules, filters, etc.)
+  const info = await client.getExchangeInfo({ symbol: 'BTCUSDT' });
+  console.log('Exchange info:', info.symbols[0].filters);
+
+  // Recent klines (1-minute candles)
+  const klines = await client.getKlines({
+    symbol: 'BTCUSDT',
+    interval: '1m',
+    limit: 10,
+  });
+  console.log('Latest close:', klines[klines.length - 1][4]);
+}
+
+fetchMarketData().catch(console.error);
+```
+
+```typescript Authenticated Spot Trading
+import { MainClient, NewSpotOrderParams } from 'binance';
+
+const client = new MainClient({
+  api_key: process.env.BINANCE_API_KEY!,
+  api_secret: process.env.BINANCE_API_SECRET!,
+  beautifyResponses: true,
+});
+
+async function placeSpotOrder() {
+  // Check account balances first
+  const account = await client.getAccountInformation();
+  const usdtBalance = account.balances.find((b) => b.asset === 'USDT');
+  console.log('USDT balance:', usdtBalance?.free);
+
+  // Get current BTC price
+  const priceTicker = await client.getSymbolPriceTicker({ symbol: 'BTCUSDT' });
+  console.log('BTC price:', priceTicker.price);
+
+  // Test order before live submission
+  const orderParams: NewSpotOrderParams = {
+    symbol: 'BTCUSDT',
+    side: 'BUY',
+    type: 'MARKET',
+    quoteOrderQty: 10, // spend 10 USDT
+    newOrderRespType: 'FULL',
+  };
+
+  await client.testNewOrder(orderParams);
+  console.log('Order validation passed');
+
+  // Submit the live order
+  const result = await client.submitNewOrder(orderParams);
+  console.log('Order result:', result);
+}
+
+placeSpotOrder().catch(console.error);
+```
+
+```typescript OCO Order
+import { MainClient } from 'binance';
+
+const client = new MainClient({
+  api_key: process.env.BINANCE_API_KEY!,
+  api_secret: process.env.BINANCE_API_SECRET!,
+});
+
+async function placeOCO() {
+  // Place an OCO: take-profit limit + stop-loss
+  const oco = await client.submitNewOrderList({
+    symbol: 'BTCUSDT',
+    side: 'SELL',
+    quantity: 0.001,
+    aboveType: 'LIMIT_MAKER',
+    abovePrice: '110000',    // take-profit
+    belowType: 'STOP_LOSS_LIMIT',
+    belowPrice: '90000',     // stop-loss trigger
+    belowStopPrice: '89500', // stop-loss limit price
+  });
+  console.log('OCO created:', oco.orderListId);
+}
+
+placeOCO().catch(console.error);
+```
+</CodeGroup>
+
+## Product Coverage
+
+`MainClient` covers an exceptionally wide range of Binance product groups. The table below summarises the main API families available.
+
+<CardGroup cols={2}>
+  <Card title="Spot Trading" icon="chart-line">
+    Order placement, cancellation, and history. Supports MARKET, LIMIT, STOP_LOSS, TAKE_PROFIT, and advanced order list types (OCO, OTO, OTOCO, OPO, OPOCO).
+  </Card>
+  <Card title="Margin Trading" icon="scale-balanced">
+    Cross and isolated margin accounts, borrow/repay, margin orders, forced liquidation records, and interest history.
+  </Card>
+  <Card title="Wallet & Transfers" icon="wallet">
+    Deposit/withdrawal addresses and history, dust conversion, universal transfers, sub-account management, and fiat operations.
+  </Card>
+  <Card title="Convert & Earn" icon="arrow-right-arrow-left">
+    Convert API for instant swaps, Simple Earn flexible/locked products, Auto-Invest plans, Dual Investment, and Staking.
+  </Card>
+  <Card title="Crypto Loans" icon="hand-holding-dollar">
+    Borrow, repay, LTV adjustments, and liquidation history for both standard and flexible crypto loans. VIP Loan endpoints included.
+  </Card>
+  <Card title="Mining & NFTs" icon="cube">
+    Mining account stats, hashrate resale, mining earnings, plus NFT asset/deposit/withdrawal history.
+  </Card>
+</CardGroup>
+
+<Note>
+  For USD-M Futures, use [`USDMClient`](/rest/usdm-client). For COIN-M Futures, use [`CoinMClient`](/rest/coinm-client). For Portfolio Margin, use [`PortfolioClient`](/rest/portfolio-client).
+</Note>
+
+## Full Endpoint Map
+
+The complete list of all `MainClient` methods mapped to their exact API endpoints is maintained in the repository:
+
+[REST Endpoint Function List →](https://github.com/tiagosiebler/binance/blob/master/docs/endpointFunctionList.md)

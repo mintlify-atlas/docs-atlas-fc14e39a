@@ -1,0 +1,281 @@
+---
+title: "WebsocketClient: Methods, Events, and Subscriptions"
+sidebarTitle: "WebsocketClient"
+description: "Full method and event reference for WebsocketClient, covering subscription management, user data streams, and event listener patterns."
+---
+
+`WebsocketClient` is the primary class for subscribing to Binance WebSocket streams. It manages connection lifecycle, automatic reconnection, heartbeating, and event emission for all product groups — Spot, Margin, USD-M Futures, COIN-M Futures, European Options, Portfolio Margin, and testnet variants. Instantiate it once and subscribe to any number of topics across any supported market.
+
+## Constructor
+
+<ParamField path="options" type="WSClientConfigurableOptions" required>
+  Configuration object for the WebSocket client. Common fields include `api_key`, `api_secret`, `beautify`, `testnet`, and `reconnectTimeout`. See [Types Overview](/api-reference/types-overview) for the full interface.
+</ParamField>
+
+<ParamField path="logger" type="DefaultLogger">
+  Optional custom logger. Defaults to the built-in `DefaultLogger` which writes to `console`.
+</ParamField>
+
+```typescript
+import { WebsocketClient } from 'binance';
+
+const wsClient = new WebsocketClient({
+  api_key: 'YOUR_API_KEY',
+  api_secret: 'YOUR_API_SECRET',
+  beautify: true,
+});
+```
+
+<Tip>
+  Set `beautify: true` to receive camelCase formatted events via the `formattedMessage` and `formattedUserDataMessage` events. Without it only the raw `message` event fires.
+</Tip>
+
+---
+
+## Core Subscription Methods
+
+These are the lowest-level subscription primitives. All higher-level helpers ultimately delegate to these two methods.
+
+### `subscribe(topics, wsKey)`
+
+Subscribe to one or more raw stream topics on a given WebSocket connection.
+
+<ParamField path="topics" type="string | string[]" required>
+  A single topic string or array of topic strings. Topics use Binance's stream naming convention, e.g. `btcusdt@aggTrade` or `btcusdt@kline_1m`.
+</ParamField>
+
+<ParamField path="wsKey" type="WsKey" required>
+  The WebSocket connection key that identifies which product-group connection to use. See the [WsKey reference table](#wskey-values) below.
+</ParamField>
+
+```typescript
+// Subscribe to BTC/USDT 1-minute klines on the USD-M Futures connection
+await wsClient.subscribe('btcusdt@kline_1m', 'usdm');
+
+// Subscribe to multiple topics at once
+await wsClient.subscribe(['btcusdt@aggTrade', 'ethusdt@aggTrade'], 'main');
+```
+
+---
+
+### `unsubscribe(topics, wsKey)`
+
+Unsubscribe from one or more previously subscribed topics on a given connection.
+
+<ParamField path="topics" type="string | string[]" required>
+  Topic string(s) to unsubscribe from. Must match the exact topic string used during `subscribe`.
+</ParamField>
+
+<ParamField path="wsKey" type="WsKey" required>
+  The WebSocket connection key identifying the connection to unsubscribe from.
+</ParamField>
+
+```typescript
+await wsClient.unsubscribe('btcusdt@kline_1m', 'usdm');
+```
+
+---
+
+## User Data Stream Methods
+
+User data stream methods manage authenticated private streams for order updates, balance changes, and account events. They handle listen-key creation, renewal, and automatic reconnection internally.
+
+<Note>
+  All user data stream methods require `api_key` and `api_secret` to be set in the constructor options. The SDK fetches and manages listen keys automatically.
+</Note>
+
+### Spot User Data
+
+| Method | Description |
+|---|---|
+| `subscribeSpotUserDataStream(wsKey?)` | Fetch a Spot listen key and subscribe to the Spot user data stream. Defaults to `wsKey: 'main'`. |
+| `subscribeSpotUserDataStreamWithListenKey(listenKey, wsKey?)` | Subscribe to a Spot user data stream using a pre-fetched listen key. |
+| `unsubscribeSpotUserDataStream(wsKey?)` | Unsubscribe from the Spot user data stream and stop listen-key renewal. Defaults to `wsKey: 'main'`. |
+
+### Cross Margin User Data
+
+| Method | Description |
+|---|---|
+| `subscribeCrossMarginUserDataStream()` | Fetch a Cross Margin listen key and subscribe to the Cross Margin user data stream. |
+| `unsubscribeCrossMarginUserDataStream()` | Unsubscribe from the Cross Margin user data stream. |
+
+### Isolated Margin User Data
+
+| Method | Description |
+|---|---|
+| `subscribeIsolatedMarginUserDataStream(symbol)` | Fetch a per-symbol Isolated Margin listen key and subscribe to its user data stream. The `symbol` parameter (e.g. `'BTCUSDT'`) identifies which isolated margin account to stream. |
+| `unsubscribeIsolatedMarginUserDataStream(symbol)` | Unsubscribe from the Isolated Margin user data stream for the given symbol. |
+
+### USD-M Futures User Data
+
+| Method | Description |
+|---|---|
+| `subscribeUsdFuturesUserDataStream()` | Fetch a USD-M Futures listen key and subscribe to the futures user data stream. |
+| `unsubscribeUsdFuturesUserDataStream()` | Unsubscribe from the USD-M Futures user data stream. |
+
+### COIN-M Futures User Data
+
+| Method | Description |
+|---|---|
+| `subscribeCoinFuturesUserDataStream()` | Fetch a COIN-M Futures listen key and subscribe to the COIN-M user data stream. |
+| `unsubscribeCoinFuturesUserDataStream()` | Unsubscribe from the COIN-M Futures user data stream. |
+
+### Portfolio Margin User Data
+
+| Method | Description |
+|---|---|
+| `subscribePortfolioMarginUserDataStream()` | Fetch a Portfolio Margin listen key and subscribe to the Portfolio Margin user data stream. |
+| `unsubscribePortfolioMarginUserDataStream()` | Unsubscribe from the Portfolio Margin user data stream. |
+
+```typescript
+// Subscribe to Spot user data stream
+await wsClient.subscribeSpotUserDataStream();
+
+// Subscribe to USD-M Futures user data stream
+await wsClient.subscribeUsdFuturesUserDataStream();
+
+// Handle user data events
+wsClient.on('formattedUserDataMessage', (data) => {
+  console.log('User data event:', data.eventType, data);
+});
+```
+
+---
+
+## Legacy Topic Helpers
+
+These convenience methods construct the correct raw topic string and call `subscribe` internally. They accept human-readable parameters instead of raw Binance stream names.
+
+<Note>
+  These helpers were added in earlier versions and remain fully supported. New code may prefer using `subscribe()` directly with explicit topic strings for more control.
+</Note>
+
+| Method | Parameters | Description |
+|---|---|---|
+| `subscribeAggregateTrades(symbol, market)` | `symbol: string`, `market: WsMarket` | Subscribe to the compressed/aggregate trade stream for a symbol. |
+| `subscribeTrades(symbol, market)` | `symbol: string`, `market: WsMarket` | Subscribe to the raw trade stream for a symbol. |
+| `subscribeKlines(symbol, interval, market)` | `symbol: string`, `interval: KlineInterval`, `market: WsMarket` | Subscribe to candlestick (kline) updates. |
+| `subscribeContinuousContractKlines(symbol, contractType, interval, market)` | `symbol: string`, `contractType: FuturesContractType`, `interval: KlineInterval`, `market: WsMarket` | Subscribe to continuous contract kline updates (futures only). |
+| `subscribeMarkPrice(symbol, market)` | `symbol: string`, `market: WsMarket` | Subscribe to mark price updates for a symbol. |
+| `subscribeAllMarketMarkPrice(market)` | `market: WsMarket` | Subscribe to mark price updates for all symbols on a market. |
+| `subscribeSymbol24hrTicker(symbol, market)` | `symbol: string`, `market: WsMarket` | Subscribe to the 24-hour rolling window ticker for a symbol. |
+| `subscribeAllMini24hrTickers(market)` | `market: WsMarket` | Subscribe to the all-symbol mini 24-hour ticker stream. |
+| `subscribeSymbolBookTicker(symbol, market)` | `symbol: string`, `market: WsMarket` | Subscribe to the best bid/ask stream for a symbol. |
+| `subscribePartialBookDepths(symbol, levels, speed, market)` | `symbol: string`, `levels: number`, `speed: number`, `market: WsMarket` | Subscribe to a partial order book snapshot at the given depth level. |
+| `subscribeDiffBookDepth(symbol, speed, market)` | `symbol: string`, `speed: number`, `market: WsMarket` | Subscribe to the incremental diff book depth stream. |
+
+```typescript
+import { WebsocketClient } from 'binance';
+
+const wsClient = new WebsocketClient({ beautify: true });
+
+// Subscribe to BTC/USDT aggregate trades on USD-M Futures
+wsClient.subscribeAggregateTrades('BTCUSDT', 'usdm');
+
+// Subscribe to 1-minute klines on Spot
+wsClient.subscribeKlines('ETHUSDT', '1m', 'spot');
+
+// Subscribe to partial book depth (top 5 levels, 100ms updates)
+wsClient.subscribePartialBookDepths('BTCUSDT', 5, 100, 'spot');
+```
+
+---
+
+## Events
+
+`WebsocketClient` extends `EventEmitter`. Use `.on(event, handler)` to listen to events. All event handlers receive a payload that always includes the `wsKey` identifying which connection it originated from.
+
+| Event | Payload | When Fired |
+|---|---|---|
+| `open` | `{ wsKey, event, wsUrl, ws }` | A new WebSocket connection is opened for the first time. |
+| `reconnected` | `{ wsKey, event, wsUrl, ws }` | A previously dropped connection has been successfully restored. |
+| `reconnecting` | `{ wsKey, event }` | A connection has dropped and a reconnection attempt is in progress. |
+| `close` | `{ wsKey, event }` | A connection has been closed. |
+| `message` | `WsRawMessage & { wsKey }` | A raw (unprocessed) WebSocket message is received. Fires for every message regardless of `beautify` setting. |
+| `formattedMessage` | `WsFormattedMessage` | A beautified, camelCase-formatted event message. Only fires when `beautify: true` is set in options. |
+| `formattedUserDataMessage` | `WsUserDataEvents` | A formatted user data event. Only fires when `beautify: true` is set. Useful for narrowing with [type guards](/api-reference/type-guards). |
+| `response` | `any & { wsKey, isWSAPIResponse? }` | Confirmation response to a WebSocket subscribe/unsubscribe command or a WS API call. |
+| `exception` | `any & { wsKey }` | An error or unhandled exception from the WebSocket client or an event handler. |
+
+<Warning>
+  The `error` event is deprecated. Use `exception` instead. The legacy `error` event could cause unhandled promise rejections if no listener was attached.
+</Warning>
+
+```typescript
+import { WebsocketClient } from 'binance';
+import {
+  isWsFormattedKline,
+  isWsFormattedMarkPriceUpdateEvent,
+  isWsFormattedUserDataEvent,
+} from 'binance';
+
+const wsClient = new WebsocketClient({
+  api_key: 'YOUR_API_KEY',
+  api_secret: 'YOUR_API_SECRET',
+  beautify: true,
+});
+
+wsClient.on('open', ({ wsKey, wsUrl }) => {
+  console.log(`Connected [${wsKey}]: ${wsUrl}`);
+});
+
+wsClient.on('reconnecting', ({ wsKey }) => {
+  console.warn(`Reconnecting [${wsKey}]...`);
+});
+
+wsClient.on('reconnected', ({ wsKey }) => {
+  console.log(`Reconnected [${wsKey}]`);
+});
+
+wsClient.on('formattedMessage', (data) => {
+  if (isWsFormattedKline(data)) {
+    console.log(`Kline [${data.symbol}]:`, data.kline.close);
+    return;
+  }
+  if (isWsFormattedMarkPriceUpdateEvent(data)) {
+    console.log(`Mark price [${data.symbol}]:`, data.markPrice);
+    return;
+  }
+});
+
+wsClient.on('formattedUserDataMessage', (data) => {
+  console.log('User data event:', data.eventType);
+});
+
+wsClient.on('exception', (err) => {
+  console.error('WebSocket exception:', err);
+});
+
+// Subscribe to streams
+wsClient.subscribeKlines('BTCUSDT', '1m', 'usdm');
+wsClient.subscribeUsdFuturesUserDataStream();
+```
+
+---
+
+## WsKey Values
+
+A `WsKey` is a string literal that identifies which underlying WebSocket connection to use. The SDK maintains one connection per `WsKey` and automatically routes topics to the correct connection.
+
+| WsKey | Product Group | Notes |
+|---|---|---|
+| `'main'` | Spot, Cross Margin, Isolated Margin | Primary Spot/Margin connection. Handles both public streams and user data. |
+| `'main2'` | Spot, Cross Margin, Isolated Margin | Alternative Spot connection (same product group as `main`). |
+| `'main3'` | Spot, Cross Margin | Market data only — user data is not supported on this key. |
+| `'usdm'` | USD-M Futures | Primary USD-M Futures connection. Auto-routes topics to split sub-keys. |
+| `'usdmPublic'` | USD-M Futures | High-frequency public data: book ticker and depth. |
+| `'usdmMarket'` | USD-M Futures | All other USD-M market data streams. |
+| `'usdmPrivate'` | USD-M Futures | USD-M user data stream only. |
+| `'coinm'` | COIN-M Futures | Primary COIN-M Futures connection. |
+| `'eoptions'` | European Options | Binance European Options market data and user data. |
+| `'portfolioMarginUserData'` | Portfolio Margin | Portfolio Margin user data stream. |
+| `'portfolioMarginProUserData'` | Portfolio Margin Pro | Portfolio Margin Pro user data stream. |
+| `'mainTestnetPublic'` | Spot Testnet | Public Spot testnet streams. Set `testnet: true` or use this key directly. |
+| `'mainTestnetUserData'` | Spot Testnet | Spot testnet user data. |
+| `'usdmTestnet'` | USD-M Futures Testnet | USD-M Futures testnet connection. |
+| `'coinmTestnet'` | COIN-M Futures Testnet | COIN-M Futures testnet connection. |
+| `'alpha'` | Alpha Trading | Binance Alpha trading WebSocket market data. |
+
+<Tip>
+  When `testnet: true` is passed to the constructor, the SDK automatically maps standard `WsKey` values to their testnet equivalents. You don't need to change your `wsKey` values — just set `testnet: true`.
+</Tip>

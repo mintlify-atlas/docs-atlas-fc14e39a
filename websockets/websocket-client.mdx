@@ -1,0 +1,254 @@
+---
+title: "WebsocketClient: Real-Time Binance Streams"
+sidebarTitle: "WebsocketClient"
+description: "WebsocketClient subscribes to Binance market data and user data streams across all product groups, with automatic reconnection, heartbeats, and optional event beautification."
+---
+
+`WebsocketClient` is the single entry point for all of Binance's real-time WebSocket streams. It multiplexes subscriptions across product groups — Spot, Margin, USD-M Futures, COIN-M Futures, European Options, Portfolio Margin, and Alpha — automatically managing connections, ping/pong heartbeats, 24-hour forced disconnects, and re-subscription after any network interruption. You subscribe with a topic string and a `wsKey` to target the correct connection; everything else is handled for you.
+
+## Constructor
+
+```typescript
+import { WebsocketClient } from 'binance';
+
+const wsClient = new WebsocketClient(options?, logger?);
+```
+
+### `WSClientConfigurableOptions`
+
+| Option | Type | Description |
+|---|---|---|
+| `api_key` | `string` | Your Binance API key (required for private/user data streams) |
+| `api_secret` | `string` | Your API secret or PEM private key (HMAC, RSA, or Ed25519) |
+| `beautify` | `boolean` | When `true`, parsed events are emitted on `formattedMessage` with human-readable property names |
+| `beautifyWarnIfMissing` | `boolean` | Log a warning when the beautifier encounters an unknown event field |
+| `testnet` | `boolean` | Connect to Binance testnet endpoints instead of live |
+| `demoTrading` | `boolean` | Connect to Binance demo trading endpoints (real data, simulated orders) |
+| `recvWindow` | `number` | Signature validity window in milliseconds (default: 5000) |
+| `pingInterval` | `number` | How often to send a heartbeat ping, in milliseconds |
+| `pongTimeout` | `number` | How long to wait for a pong before assuming the connection is dead |
+| `reconnectTimeout` | `number` | Delay before spawning a replacement connection after a drop |
+
+## WsKey Concept
+
+Every WebSocket connection in the SDK is identified by a `WsKey` string. When you call `subscribe()` or a helper such as `subscribeMarkPrice()`, you pass the appropriate key so the SDK can route your subscription to the correct underlying connection.
+
+| `WsKey` | Product / endpoint |
+|---|---|
+| `'main'` | Spot, Margin, Isolated Margin market data and user data |
+| `'usdm'` | USD-M Futures — auto-routes to `usdmPublic`/`usdmMarket`/`usdmPrivate` internally |
+| `'coinm'` | COIN-M Futures market data and user data |
+| `'eoptions'` | European Options market data |
+| `'portfolioMarginUserData'` | Portfolio Margin user data |
+| `'alpha'` | Binance Alpha market data |
+| `'mainWSAPI'` | Spot/Margin WebSocket API (for WS API commands) |
+| `'usdmWSAPI'` | USD-M Futures WebSocket API |
+| `'coinmWSAPI'` | COIN-M Futures WebSocket API |
+
+The full map is exported as `WS_KEY_MAP` from the package.
+
+## Subscribing and Unsubscribing
+
+Pass a single topic string or an array of topic strings, along with the target `wsKey`. The client connects and authenticates automatically on the first subscription.
+
+```typescript
+// Single topic
+wsClient.subscribe('btcusdt@aggTrade', 'main');
+
+// Multiple topics at once
+wsClient.subscribe(
+  ['btcusdt@trade', 'btcusdt@kline_1m', 'btcusdt@depth'],
+  'main',
+);
+
+// Unsubscribe
+wsClient.unsubscribe('btcusdt@aggTrade', 'main');
+```
+
+Topic format follows Binance's stream name convention exactly — for example `'btcusdt@markPrice@1s'` for the 1-second mark price on USD-M Futures, or `'btcusdt@depth5@100ms'` for a partial order book update on Spot.
+
+## Event Model
+
+All incoming data is delivered through Node.js `EventEmitter` events. Attach listeners before calling `subscribe()`.
+
+| Event | When it fires | Payload |
+|---|---|---|
+| `message` | Every raw message from Binance | Parsed JSON object with `wsKey` attached |
+| `formattedMessage` | Every message when `beautify: true` | Beautified event object with readable field names |
+| `formattedUserDataMessage` | User data events when `beautify: true` | Typed user data event |
+| `open` | WebSocket connection established | `{ wsKey }` |
+| `reconnecting` | Automatic reconnection started | `{ wsKey }` |
+| `reconnected` | Reconnection completed | `{ wsKey }` |
+| `authenticated` | WS API session authenticated | `{ wsKey }` |
+| `response` | Protocol-level response (e.g. `LIST_SUBSCRIPTIONS`) | Response object |
+| `exception` | An unhandled error in the WS layer | Error detail |
+
+## Code Examples
+
+### Spot: BTCUSDT Trades and Klines
+
+<Tabs>
+  <Tab title="TypeScript">
+    ```typescript
+    import {
+      WebsocketClient,
+      isWsFormattedKline,
+      isWsFormattedTrade,
+    } from 'binance';
+
+    const wsClient = new WebsocketClient({ beautify: true });
+
+    wsClient.on('formattedMessage', (data) => {
+      if (isWsFormattedTrade(data)) {
+        console.log('Trade:', data.symbol, data.price, data.quantity);
+        return;
+      }
+      if (isWsFormattedKline(data)) {
+        console.log('Kline:', data.symbol, data.kline.close);
+        return;
+      }
+    });
+
+    wsClient.on('open', ({ wsKey }) => console.log('Connected:', wsKey));
+    wsClient.on('reconnected', ({ wsKey }) => console.log('Reconnected:', wsKey));
+    wsClient.on('exception', (err) => console.error('WS error:', err));
+
+    wsClient.subscribe(
+      ['btcusdt@trade', 'btcusdt@kline_1m'],
+      'main', // Spot / Margin stream
+    );
+    ```
+  </Tab>
+  <Tab title="JavaScript">
+    ```javascript
+    const { WebsocketClient } = require('binance');
+
+    const wsClient = new WebsocketClient({ beautify: true });
+
+    wsClient.on('formattedMessage', (data) => {
+      console.log('Formatted event:', data);
+    });
+
+    wsClient.on('open', ({ wsKey }) => console.log('Connected:', wsKey));
+    wsClient.on('exception', (err) => console.error('WS error:', err));
+
+    wsClient.subscribe(
+      ['btcusdt@trade', 'btcusdt@kline_1m'],
+      'main',
+    );
+    ```
+  </Tab>
+</Tabs>
+
+### USD-M Futures: Mark Price
+
+<Tabs>
+  <Tab title="TypeScript">
+    ```typescript
+    import {
+      WebsocketClient,
+      isWsFormattedMarkPriceUpdateEvent,
+    } from 'binance';
+
+    const wsClient = new WebsocketClient({ beautify: true });
+
+    wsClient.on('formattedMessage', (data) => {
+      if (isWsFormattedMarkPriceUpdateEvent(data)) {
+        console.log(
+          'Mark price update:',
+          data.symbol,
+          data.markPrice,
+        );
+      }
+    });
+
+    // Subscribe to per-symbol mark price (1-second updates)
+    wsClient.subscribe('btcusdt@markPrice@1s', 'usdm');
+
+    // Or subscribe to all market mark prices at once
+    wsClient.subscribe('!markPrice@arr', 'usdm');
+    ```
+  </Tab>
+  <Tab title="JavaScript">
+    ```javascript
+    const { WebsocketClient } = require('binance');
+
+    const wsClient = new WebsocketClient({ beautify: true });
+
+    wsClient.on('formattedMessage', (data) => {
+      console.log('Message:', data);
+    });
+
+    wsClient.subscribe('btcusdt@markPrice@1s', 'usdm');
+    ```
+  </Tab>
+</Tabs>
+
+## Available Subscribe Helpers
+
+For convenience, the `WebsocketClient` exposes named helper methods that construct the correct topic string for you. These cover the most common stream types.
+
+<CardGroup cols={2}>
+  <Card title="Futures Helpers" icon="chart-line">
+    - `subscribeAggregateTrades(symbol, wsKey)`
+    - `subscribeTrades(symbol, wsKey)`
+    - `subscribeKlines(symbol, interval, wsKey)`
+    - `subscribeMarkPrice(symbol, wsKey)`
+    - `subscribeAllMarketMarkPrice(wsKey)`
+    - `subscribeContinuousContractKlines(symbol, contractType, interval, wsKey)`
+    - `subscribeIndexKlines(symbol, interval)`
+    - `subscribeMarkPriceKlines(symbol, interval)`
+    - `subscribeSymbolMini24hrTicker(symbol, wsKey)`
+    - `subscribeAllMini24hrTickers(wsKey)`
+    - `subscribeSymbol24hrTicker(symbol, wsKey)`
+    - `subscribeAll24hrTickers(wsKey)`
+    - `subscribeSymbolBookTicker(symbol, wsKey)`
+    - `subscribeAllBookTickers(wsKey)`
+    - `subscribeSymbolLiquidationOrders(symbol, wsKey)`
+    - `subscribeAllLiquidationOrders(wsKey)`
+    - `subscribePartialBookDepths(symbol, levels, speed, wsKey)`
+    - `subscribeDiffBookDepth(symbol, speed, wsKey)`
+    - `subscribeContractInfoStream(wsKey)`
+    - `subscribeAllRollingWindowTickers(wsKey, windowSize)`
+  </Card>
+  <Card title="Spot-Specific Helpers" icon="coins">
+    - `subscribeSpotAggregateTrades(symbol)`
+    - `subscribeSpotTrades(symbol)`
+    - `subscribeSpotKline(symbol, interval)`
+    - `subscribeSpotSymbolMini24hrTicker(symbol)`
+    - `subscribeSpotAllMini24hrTickers()`
+    - `subscribeSpotSymbol24hrTicker(symbol)`
+    - `subscribeSpotAll24hrTickers(wsKeyOverride?)`
+    - `subscribeSpotSymbolBookTicker(symbol)`
+    - `subscribeSpotPartialBookDepth(symbol, levels, speed)`
+    - `subscribeSpotDiffBookDepth(symbol, speed)`
+    - `subscribeCoinIndexPrice(symbol)`
+  </Card>
+</CardGroup>
+
+<Tip>
+  Enable `beautify: true` in the constructor and listen on the `formattedMessage` event to receive events with fully readable property names and pre-parsed numeric strings. The SDK ships with TypeScript type guards — such as `isWsFormattedKline`, `isWsFormattedTrade`, `isWsFormattedMarkPriceUpdateEvent`, and many more — that allow you to narrow event types inside a single `formattedMessage` handler without any manual field inspection.
+</Tip>
+
+## Smart Persistence
+
+The `WebsocketClient` keeps connections alive automatically:
+
+<Steps>
+  <Step title="Heartbeat">
+    The SDK sends native WebSocket ping frames at the configured `pingInterval`. If a pong is not received within `pongTimeout`, the connection is considered dead and replaced.
+  </Step>
+  <Step title="Auto-reconnect">
+    When any connection drops — whether due to a network blip, a Binance-side 24-hour forced disconnect, or a heartbeat timeout — the client emits `reconnecting`, tears down the old socket, opens a fresh one, and re-subscribes every topic that was active on that connection.
+  </Step>
+  <Step title="Post-reconnect sync">
+    Listen to the `reconnected` event to trigger any state synchronisation (e.g. REST API balance/position fetch) in case messages were missed during the outage.
+  </Step>
+</Steps>
+
+```typescript
+wsClient.on('reconnected', async ({ wsKey }) => {
+  console.log('Reconnected on', wsKey, '— syncing state via REST...');
+  // fetch balances, open orders, positions, etc.
+});
+```

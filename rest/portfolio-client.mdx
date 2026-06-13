@@ -1,0 +1,343 @@
+---
+title: "PortfolioClient: Portfolio Margin REST API"
+sidebarTitle: "PortfolioClient"
+description: "PortfolioClient covers Binance Portfolio Margin — a unified account that combines Spot, USD-M Futures, and COIN-M Futures margin under a single cross-margin calculation."
+---
+
+`PortfolioClient` is the REST client for Binance's Portfolio Margin programme — a unified margin model that combines Spot (cross-margin), USD-M Futures (UM), and COIN-M Futures (CM) positions into a single account. Under Portfolio Margin, margin requirements are calculated across all three product groups simultaneously, allowing positions to offset each other and potentially reducing overall margin consumption. All Portfolio Margin API calls target the `papi` base URL key and route through `papi.binance.com`.
+
+## What is Portfolio Margin?
+
+Portfolio Margin (PM) is an advanced risk-management framework available to qualified Binance users. Instead of siloing your Spot, USD-M Futures, and COIN-M Futures margin separately, Portfolio Margin aggregates them into one unified margin calculation:
+
+- **Unified collateral** — USDT, BNB, BTC and other approved assets contribute to a single margin pool.
+- **Cross-product netting** — A long BTC Spot position can partially offset a short BTC USD-M Futures position, reducing net margin requirements.
+- **Three sub-accounts** — UM (USD-M Futures), CM (COIN-M Futures), and Margin sub-accounts operate under the same unified margin umbrella.
+
+<Note>
+  Portfolio Margin requires account qualification. Check your eligibility and apply through the Binance Portfolio Margin page before using `PortfolioClient`. See [Binance Portfolio Margin docs](https://www.binance.com/en/support/faq/introduction-to-portfolio-margin-360052054a8645d7b279d7f04e) for details.
+</Note>
+
+## Installation
+
+<Steps>
+  <Step title="Install the package">
+    ```bash
+    npm install binance
+    ```
+  </Step>
+  <Step title="Import PortfolioClient">
+    ```typescript
+    import { PortfolioClient } from 'binance';
+    // CommonJS: const { PortfolioClient } = require('binance');
+    ```
+  </Step>
+  <Step title="Instantiate the client">
+    ```typescript
+    const client = new PortfolioClient({
+      api_key: process.env.BINANCE_API_KEY,
+      api_secret: process.env.BINANCE_API_SECRET,
+    });
+    ```
+  </Step>
+</Steps>
+
+## Constructor Options
+
+```typescript
+const client = new PortfolioClient(
+  restClientOptions,  // RestClientOptions (optional)
+  requestOptions,     // AxiosRequestConfig (optional)
+);
+```
+
+<ParamField body="api_key" type="string">
+  Your Binance API key. Required for all Portfolio Margin endpoints — the API is entirely private.
+</ParamField>
+
+<ParamField body="api_secret" type="string">
+  Your Binance API secret. Supports HMAC, RSA, and Ed25519 — key type is detected automatically.
+</ParamField>
+
+<ParamField body="beautifyResponses" type="boolean" default="false">
+  When `true`, numeric strings in responses are parsed into JavaScript numbers for well-known fields.
+</ParamField>
+
+<ParamField body="testnet" type="boolean" default="false">
+  Routes requests to the Binance testnet environment when available. Portfolio Margin endpoints use the `papi` base URL key.
+</ParamField>
+
+## Base URL
+
+| Key | Production URL |
+|-----|---------------|
+| `papi` | `https://papi.binance.com` |
+
+## Method Categories
+
+### Account & Balance
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `testConnectivity()` | `GET papi/v1/ping` | Test API connectivity |
+| `getAccountInfo()` | `GET papi/v1/account` | Full Portfolio Margin account information |
+| `getBalance(params?)` | `GET papi/v1/balance` | Balance for a specific or all assets |
+| `getUMAccount()` | `GET papi/v1/um/account` | USD-M Futures sub-account details |
+| `getCMAccount()` | `GET papi/v1/cm/account` | COIN-M Futures sub-account details |
+| `getUMAccountConfig()` | `GET papi/v1/um/accountConfig` | UM account-level configuration |
+| `getUMSymbolConfig(params?)` | `GET papi/v1/um/symbolConfig` | UM symbol configuration |
+
+### UM (USD-M Futures) Orders
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `submitNewUMOrder(params)` | `POST papi/v1/um/order` | Place a UM futures order |
+| `submitNewUMAlgoOrder(params)` | `POST papi/v1/um/algo/order` | Place a UM algo order (TWAP/VP) |
+| `cancelUMOrder(params)` | `DELETE papi/v1/um/order` | Cancel a UM order |
+| `cancelAllUMOrders(params)` | `DELETE papi/v1/um/allOpenOrders` | Cancel all open UM orders for a symbol |
+| `cancelUMAlgoOrder(params)` | `DELETE papi/v1/um/algo/order` | Cancel a UM algo order |
+| `cancelAllUMAlgoOpenOrders(params)` | `DELETE papi/v1/um/algo/allOpenOrders` | Cancel all open UM algo orders |
+| `modifyUMOrder(params)` | `PUT papi/v1/um/order` | Modify an existing UM order |
+| `getUMOrder(params)` | `GET papi/v1/um/order` | Query a specific UM order |
+| `getAllUMOrders(params)` | `GET papi/v1/um/allOrders` | Full UM order history |
+| `getUMOpenOrder(params)` | `GET papi/v1/um/openOrder` | Query a specific open UM order |
+| `getAllUMOpenOrders(params?)` | `GET papi/v1/um/openOrders` | All open UM orders |
+| `getAllUMAlgoOrders(params)` | `GET papi/v1/um/algo/allAlgoOrders` | All UM algo orders |
+| `getUMAlgoOpenOrders(params?)` | `GET papi/v1/um/algo/openAlgoOrders` | Open UM algo orders |
+| `getUMAlgoOrder(params)` | `GET papi/v1/um/algo/algoOrder` | Query a specific UM algo order |
+| `getUMTrades(params)` | `GET papi/v1/um/userTrades` | UM trade history |
+| `getUMForceOrders(params)` | `GET papi/v1/um/forceOrders` | UM liquidation orders |
+| `getUMOrderModificationHistory(params)` | `GET papi/v1/um/orderAmendment` | UM order modification history |
+
+### CM (COIN-M Futures) Orders
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `submitNewCMOrder(params)` | `POST papi/v1/cm/order` | Place a CM futures order |
+| `submitNewCMConditionalOrder(params)` | `POST papi/v1/cm/conditional/order` | Place a CM conditional order |
+| `cancelCMOrder(params)` | `DELETE papi/v1/cm/order` | Cancel a CM order |
+| `cancelAllCMOrders(params)` | `DELETE papi/v1/cm/allOpenOrders` | Cancel all open CM orders |
+| `cancelCMConditionalOrder(params)` | `DELETE papi/v1/cm/conditional/order` | Cancel a CM conditional order |
+| `modifyCMOrder(params)` | `PUT papi/v1/cm/order` | Modify an existing CM order |
+| `getCMOrder(params)` | `GET papi/v1/cm/order` | Query a specific CM order |
+| `getAllCMOrders(params)` | `GET papi/v1/cm/allOrders` | Full CM order history |
+| `getCMOpenOrder(params)` | `GET papi/v1/cm/openOrder` | Query a specific open CM order |
+| `getAllCMOpenOrders(params?)` | `GET papi/v1/cm/openOrders` | All open CM orders |
+| `getCMTrades(params)` | `GET papi/v1/cm/userTrades` | CM trade history |
+| `getCMForceOrders(params)` | `GET papi/v1/cm/forceOrders` | CM liquidation orders |
+| `getCMOrderModificationHistory(params)` | `GET papi/v1/cm/orderAmendment` | CM order modification history |
+
+### Margin Orders
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `submitNewMarginOrder(params)` | `POST papi/v1/margin/order` | Place a margin order |
+| `submitNewMarginOCO(params)` | `POST papi/v1/margin/order/oco` | Place a margin OCO order |
+| `submitMarginLoan(params)` | `POST papi/v1/marginLoan` | Borrow margin assets |
+| `submitMarginRepay(params)` | `POST papi/v1/repayLoan` | Repay margin loan |
+| `cancelMarginOrder(params)` | `DELETE papi/v1/margin/order` | Cancel a margin order |
+| `cancelMarginOCO(params)` | `DELETE papi/v1/margin/orderList` | Cancel a margin OCO order |
+| `cancelAllMarginOrders(params)` | `DELETE papi/v1/margin/allOpenOrders` | Cancel all open margin orders |
+| `getMarginOrder(params)` | `GET papi/v1/margin/order` | Query a specific margin order |
+| `getMarginOpenOrders(params)` | `GET papi/v1/margin/openOrders` | Open margin orders for a symbol |
+| `getAllMarginOrders(params)` | `GET papi/v1/margin/allOrders` | Full margin order history |
+| `getMarginOCO(params)` | `GET papi/v1/margin/orderList` | Query a margin OCO |
+| `getAllMarginOCO(params)` | `GET papi/v1/margin/allOrderList` | All margin OCO orders |
+| `getMarginTrades(params)` | `GET papi/v1/margin/myTrades` | Margin trade history |
+| `repayMarginDebt(params)` | `POST papi/v1/margin/repay-debt` | Repay margin debt |
+
+### Position Management
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `getUMPosition(params?)` | `GET papi/v1/um/positionRisk` | UM open positions |
+| `getCMPosition(params?)` | `GET papi/v1/cm/positionRisk` | CM open positions |
+| `updateUMLeverage(params)` | `POST papi/v1/um/leverage` | Set UM leverage for a symbol |
+| `updateCMLeverage(params)` | `POST papi/v1/cm/leverage` | Set CM leverage for a symbol |
+| `updateUMPositionMode(params)` | `POST papi/v1/um/positionSide/dual` | Toggle UM one-way / hedge mode |
+| `updateCMPositionMode(params)` | `POST papi/v1/cm/positionSide/dual` | Toggle CM one-way / hedge mode |
+| `getUMPositionMode()` | `GET papi/v1/um/positionSide/dual` | Query UM position mode |
+| `getCMPositionMode()` | `GET papi/v1/cm/positionSide/dual` | Query CM position mode |
+| `getUMLeverageBrackets(params?)` | `GET papi/v1/um/leverageBracket` | UM leverage brackets |
+| `getCMLeverageBrackets(params?)` | `GET papi/v1/cm/leverageBracket` | CM leverage brackets |
+| `getUMADLQuantile(params?)` | `GET papi/v1/um/adlQuantile` | UM ADL quantile |
+| `getCMADLQuantile(params?)` | `GET papi/v1/cm/adlQuantile` | CM ADL quantile |
+
+### Income & Transfers
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `getUMIncomeHistory(params?)` | `GET papi/v1/um/income` | UM income history |
+| `getCMIncomeHistory(params?)` | `GET papi/v1/cm/income` | CM income history |
+| `autoCollectFunds()` | `POST papi/v1/auto-collection` | Auto-collect funds to PM account |
+| `transferAssetFuturesMargin(params)` | `POST papi/v1/asset-collection` | Transfer asset from futures to PM |
+| `transferBNB(params)` | `POST papi/v1/bnb-transfer` | Transfer BNB between UM and PM |
+| `repayFuturesNegativeBalance()` | `POST papi/v1/repay-futures-negative-balance` | Repay negative balance in futures |
+| `getAutoRepayFuturesStatus()` | `GET papi/v1/repay-futures-switch` | Query auto-repay futures status |
+| `updateAutoRepayFuturesStatus(params)` | `POST papi/v1/repay-futures-switch` | Toggle auto-repay futures |
+
+## Code Examples
+
+<CodeGroup>
+```typescript Account Overview
+import { PortfolioClient } from 'binance';
+
+const client = new PortfolioClient({
+  api_key: process.env.BINANCE_API_KEY!,
+  api_secret: process.env.BINANCE_API_SECRET!,
+  beautifyResponses: true,
+});
+
+async function getPortfolioOverview() {
+  // Full account info — includes equity, margin ratio, unrealised P&L
+  const account = await client.getAccountInfo();
+  console.log('Unified margin:', account.uniMMR);
+  console.log('Account equity:', account.accountEquity);
+
+  // Balance across all assets in the PM account
+  const balance = await client.getBalance();
+  console.log('Portfolio balance:', balance);
+
+  // UM positions (USD-M Futures sub-account)
+  const umPositions = await client.getUMPosition();
+  const openUM = umPositions.filter((p) => Number(p.positionAmt) !== 0);
+  console.log(`${openUM.length} open UM positions`);
+
+  // CM positions (COIN-M Futures sub-account)
+  const cmPositions = await client.getCMPosition();
+  const openCM = cmPositions.filter((p) => Number(p.positionAmt) !== 0);
+  console.log(`${openCM.length} open CM positions`);
+}
+
+getPortfolioOverview().catch(console.error);
+```
+
+```typescript Place UM and Margin Orders
+import { PortfolioClient } from 'binance';
+
+const client = new PortfolioClient({
+  api_key: process.env.BINANCE_API_KEY!,
+  api_secret: process.env.BINANCE_API_SECRET!,
+});
+
+async function placePortfolioOrders() {
+  // Set leverage for the UM sub-account
+  await client.updateUMLeverage({ symbol: 'BTCUSDT', leverage: 10 });
+
+  // Place a USD-M Futures order (UM sub-account)
+  const umOrder = await client.submitNewUMOrder({
+    symbol: 'BTCUSDT',
+    side: 'SELL',
+    type: 'MARKET',
+    quantity: 0.001,
+  });
+  console.log('UM order placed:', umOrder.orderId);
+
+  // Place a margin order (Margin sub-account, same unified account)
+  const marginOrder = await client.submitNewMarginOrder({
+    symbol: 'BTCUSDT',
+    side: 'BUY',
+    type: 'LIMIT',
+    price: '90000',
+    quantity: 0.001,
+    timeInForce: 'GTC',
+  });
+  console.log('Margin order placed:', marginOrder.orderId);
+}
+
+placePortfolioOrders().catch(console.error);
+```
+
+```typescript Place a CM Order
+import { PortfolioClient } from 'binance';
+
+const client = new PortfolioClient({
+  api_key: process.env.BINANCE_API_KEY!,
+  api_secret: process.env.BINANCE_API_SECRET!,
+});
+
+async function placeCMOrder() {
+  // Set leverage for CM sub-account
+  await client.updateCMLeverage({ symbol: 'BTCUSD_PERP', leverage: 5 });
+
+  // Place a COIN-M Futures order (CM sub-account)
+  const cmOrder = await client.submitNewCMOrder({
+    symbol: 'BTCUSD_PERP',
+    side: 'BUY',
+    type: 'MARKET',
+    quantity: 1,
+  });
+  console.log('CM order:', cmOrder.orderId, cmOrder.status);
+
+  // Check CM positions
+  const positions = await client.getCMPosition();
+  console.log('CM positions:', positions.filter((p) => p.positionAmt !== '0'));
+}
+
+placeCMOrder().catch(console.error);
+```
+
+```typescript UM Algo Orders
+import { PortfolioClient } from 'binance';
+
+const client = new PortfolioClient({
+  api_key: process.env.BINANCE_API_KEY!,
+  api_secret: process.env.BINANCE_API_SECRET!,
+});
+
+async function placeAlgoOrder() {
+  // Place a TWAP algo order on the UM sub-account
+  const algoOrder = await client.submitNewUMAlgoOrder({
+    symbol: 'BTCUSDT',
+    side: 'BUY',
+    quantity: 0.01,
+    duration: 300, // execute over 300 seconds
+    algoType: 'TWAP',
+  });
+  console.log('Algo order ID:', algoOrder.algoId);
+
+  // Check open algo orders
+  const openAlgo = await client.getUMAlgoOpenOrders();
+  console.log('Open algo orders:', openAlgo.length);
+
+  // Cancel the algo order
+  await client.cancelUMAlgoOrder({ algoId: algoOrder.algoId });
+  console.log('Algo order cancelled');
+}
+
+placeAlgoOrder().catch(console.error);
+```
+</CodeGroup>
+
+## Portfolio Margin Account Structure
+
+<CardGroup cols={3}>
+  <Card title="UM Sub-Account" icon="chart-line">
+    Houses USD-M Futures positions. Orders placed with `submitNewUMOrder()` and leverage managed with `updateUMLeverage()`.
+  </Card>
+  <Card title="CM Sub-Account" icon="coins">
+    Houses COIN-M Futures positions. Orders placed with `submitNewCMOrder()` settled in the underlying cryptocurrency.
+  </Card>
+  <Card title="Margin Sub-Account" icon="scale-balanced">
+    Cross-margin Spot trading. Orders placed with `submitNewMarginOrder()`. Borrow/repay via `submitMarginLoan()` / `submitMarginRepay()`.
+  </Card>
+</CardGroup>
+
+<Info>
+  The unified margin calculation means a long Spot BTC position in the Margin sub-account can reduce the margin required for a short BTC USD-M Futures position in the UM sub-account — and vice versa. Use `getAccountInfo()` to inspect your current `uniMMR` (unified maintenance margin ratio).
+</Info>
+
+## Commission & Fee Burn
+
+| Method | Description |
+|---|---|
+| `getUMCommissionRate(params)` | Query maker/taker commission rates for a UM symbol |
+| `getCMCommissionRate(params)` | Query maker/taker commission rates for a CM symbol |
+| `toggleUMFeeBurn(params)` | Enable or disable BNB fee discount for UM trading |
+| `getUMFeeBurnStatus()` | Check whether the BNB fee discount is active |
+
+## Further Reading
+
+- [Binance Portfolio Margin Overview](https://www.binance.com/en/support/faq/introduction-to-portfolio-margin-360052054a8645d7b279d7f04e)
+- [Binance Portfolio Margin API Docs](https://developers.binance.com/docs/derivatives/portfolio-margin/general-info)
+- [REST Endpoint Function List →](https://github.com/tiagosiebler/binance/blob/master/docs/endpointFunctionList.md#portfolio-clientts)

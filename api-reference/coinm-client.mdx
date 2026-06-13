@@ -1,0 +1,224 @@
+---
+title: "CoinMClient REST API Method Reference"
+sidebarTitle: "CoinMClient"
+description: "Complete method reference for CoinMClient (Binance COIN-M Futures), covering market data, orders, position management, and account endpoints for coin-settled contracts."
+---
+
+`CoinMClient` provides typed access to the Binance **COIN-M (Coin-Margined) Futures** REST API (`dapi/v1`, `dapi/v2`). Unlike USD-M futures where margin and PnL are denominated in stablecoins, COIN-M futures are margined and settled in the underlying cryptocurrency (e.g. BTC, ETH). The client handles authentication, request signing, and time-drift correction automatically.
+
+<Note>
+  The complete endpoint-to-function mapping for `CoinMClient` is available in the [endpointFunctionList reference](https://github.com/tiagosiebler/binance/blob/master/docs/endpointFunctionList.md) on GitHub.
+</Note>
+
+## Installation & Instantiation
+
+```typescript
+import { CoinMClient } from 'binance';
+
+// Public (market data only)
+const publicClient = new CoinMClient();
+
+// Authenticated
+const client = new CoinMClient({
+  api_key: process.env.BINANCE_API_KEY,
+  api_secret: process.env.BINANCE_API_SECRET,
+});
+
+// Testnet
+const testClient = new CoinMClient({ testnet: true });
+```
+
+---
+
+## Market Data
+
+These methods are **public** — no API key is required.
+
+| Method | HTTP | Endpoint | Description |
+|---|---|---|---|
+| `testConnectivity()` | GET | `dapi/v1/ping` | Test server connectivity |
+| `getExchangeInfo()` | GET | `dapi/v1/exchangeInfo` | Exchange info, symbols, and filters |
+| `getOrderBook(params)` | GET | `dapi/v1/depth` | Order book depth |
+| `getRecentTrades(params)` | GET | `dapi/v1/trades` | Recent trades for a symbol |
+| `getHistoricalTrades(params)` | GET | `dapi/v1/historicalTrades` | Older market trades |
+| `getAggregateTrades(params)` | GET | `dapi/v1/aggTrades` | Compressed / aggregate trade list |
+| `getMarkPrice(params?)` | GET | `dapi/v1/premiumIndex` | Mark price and funding rate |
+| `getFundingRateHistory(params?)` | GET | `dapi/v1/fundingRate` | Historical funding rates |
+| `getFundingRate(params?)` | GET | `dapi/v1/fundingInfo` | Current funding info for all symbols |
+| `getKlines(params)` | GET | `dapi/v1/klines` | Kline / candlestick data |
+| `getContinuousContractKlines(params)` | GET | `dapi/v1/continuousKlines` | Continuous contract klines |
+| `getIndexPriceKlines(params)` | GET | `dapi/v1/indexPriceKlines` | Index price klines |
+| `getMarkPriceKlines(params)` | GET | `dapi/v1/markPriceKlines` | Mark price klines |
+| `getPremiumIndexKlines(params)` | GET | `dapi/v1/premiumIndexKlines` | Premium index klines |
+| `get24hrChangeStatistics(params?)` | GET | `dapi/v1/ticker/24hr` | 24-hour rolling statistics |
+| `getSymbolPriceTicker(params?)` | GET | `dapi/v1/ticker/price` | Latest price |
+| `getSymbolOrderBookTicker(params?)` | GET | `dapi/v1/ticker/bookTicker` | Best bid/ask |
+| `getOpenInterest(params)` | GET | `dapi/v1/openInterest` | Present open interest |
+| `getOpenInterestStatistics(params)` | GET | `futures/data/openInterestHist` | Historical open interest |
+| `getTopTradersLongShortAccountRatio(params)` | GET | `futures/data/topLongShortAccountRatio` | Top trader account ratio |
+| `getTopTradersLongShortPositionRatio(params)` | GET | `futures/data/topLongShortPositionRatio` | Top trader position ratio |
+| `getGlobalLongShortAccountRatio(params)` | GET | `futures/data/globalLongShortAccountRatio` | Global long/short account ratio |
+| `getTakerBuySellVolume(params)` | GET | `futures/data/takerBuySellVol` | Taker buy/sell volume |
+| `getCompositeSymbolIndex(params)` | GET | `futures/data/basis` | Composite symbol / basis data |
+| `getIndexPriceConstituents(params)` | GET | `dapi/v1/constituents` | Index price constituents |
+| `getQuarterlyContractSettlementPrices(params)` | GET | `futures/data/delivery-price` | Quarterly contract settlement prices |
+
+### Code Example — Market Data
+
+```typescript
+import { CoinMClient } from 'binance';
+
+const client = new CoinMClient();
+
+// Current mark price for BTCUSD perpetual
+const mark = await client.getMarkPrice({ symbol: 'BTCUSD_PERP' });
+console.log('Mark price:', (mark as any).markPrice);
+
+// Klines
+const klines = await client.getKlines({
+  symbol: 'BTCUSD_PERP',
+  interval: '4h',
+  limit: 10,
+});
+console.log('Klines count:', klines.length);
+
+// Open interest
+const oi = await client.getOpenInterest({ symbol: 'BTCUSD_PERP' });
+console.log('Open interest:', oi.openInterest);
+```
+
+---
+
+## Order Management
+
+All methods in this section **require authentication**.
+
+| Method | HTTP | Endpoint | Description |
+|---|---|---|---|
+| `submitNewOrder(params)` | POST | `dapi/v1/order` | Place a new COIN-M futures order |
+| `submitMultipleOrders(orders)` | POST | `dapi/v1/batchOrders` | Place up to 5 orders in a batch |
+| `modifyOrder(params)` | PUT | `dapi/v1/order` | Modify an existing LIMIT order |
+| `modifyMultipleOrders(orders)` | PUT | `dapi/v1/batchOrders` | Modify multiple orders in batch |
+| `getOrderModifyHistory(params)` | GET | `dapi/v1/orderAmendment` | Order modification history |
+| `cancelOrder(params)` | DELETE | `dapi/v1/order` | Cancel a specific order |
+| `cancelMultipleOrders(params)` | DELETE | `dapi/v1/batchOrders` | Cancel multiple orders by ID list |
+| `cancelAllOpenOrders(params?)` | DELETE | `dapi/v1/allOpenOrders` | Cancel all open orders |
+| `setCancelOrdersOnTimeout(params)` | POST | `dapi/v1/countdownCancelAll` | Auto-cancel all orders after timeout |
+| `getOrder(params)` | GET | `dapi/v1/order` | Query a specific order |
+| `getAllOrders(params)` | GET | `dapi/v1/allOrders` | All orders (open, cancelled, filled) |
+| `getAllOpenOrders(params?)` | GET | `dapi/v1/openOrders` | All current open orders |
+| `getCurrentOpenOrder(params)` | GET | `dapi/v1/openOrder` | Query a single specific open order |
+| `getForceOrders(params?)` | GET | `dapi/v1/forceOrders` | Forced liquidation orders |
+| `getAccountTrades(params)` | GET | `dapi/v1/userTrades` | Account trade list |
+
+### Code Example — Order Management
+
+```typescript
+import { CoinMClient } from 'binance';
+
+const client = new CoinMClient({
+  api_key: process.env.BINANCE_API_KEY,
+  api_secret: process.env.BINANCE_API_SECRET,
+});
+
+// Place a market order
+const order = await client.submitNewOrder({
+  symbol: 'BTCUSD_PERP',
+  side: 'BUY',
+  type: 'MARKET',
+  quantity: 1, // number of contracts
+});
+console.log('Filled at avg price:', order.avgPrice);
+
+// View all open orders
+const openOrders = await client.getAllOpenOrders({ symbol: 'BTCUSD_PERP' });
+console.log('Open orders:', openOrders.length);
+```
+
+---
+
+## Position Management
+
+| Method | HTTP | Endpoint | Description |
+|---|---|---|---|
+| `setPositionMode(params)` | POST | `dapi/v1/positionSide/dual` | Toggle Hedge Mode |
+| `setMarginType(params)` | POST | `dapi/v1/marginType` | Switch between CROSSED and ISOLATED margin |
+| `setLeverage(params)` | POST | `dapi/v1/leverage` | Set leverage for a symbol |
+| `setIsolatedPositionMargin(params)` | POST | `dapi/v1/positionMargin` | Adjust isolated margin |
+| `getPositions(params?)` | GET | `dapi/v1/positionRisk` | Current position information |
+| `getPositionMarginChangeHistory(params)` | GET | `dapi/v1/positionMargin/history` | Isolated margin change history |
+| `getADLQuantileEstimation(params?)` | GET | `dapi/v1/adlQuantile` | ADL quantile estimation |
+| `getCurrentPositionMode()` | GET | `dapi/v1/positionSide/dual` | Query current position mode |
+| `getNotionalAndLeverageBrackets(params?)` | GET | `dapi/v2/leverageBracket` | Notional and leverage brackets |
+
+---
+
+## Account
+
+| Method | HTTP | Endpoint | Description |
+|---|---|---|---|
+| `getBalance()` | GET | `dapi/v1/balance` | Account balance per asset |
+| `getAccountInformation()` | GET | `dapi/v1/account` | Full account information |
+| `getAccountCommissionRate(params)` | GET | `dapi/v1/commissionRate` | Commission rates for a symbol |
+| `getIncomeHistory(params?)` | GET | `dapi/v1/income` | Income / PnL history |
+| `getDownloadIdForFuturesTransactionHistory(params)` | GET | `dapi/v1/income/asyn` | Get download ID for transaction history |
+| `getFuturesTransactionHistoryDownloadLink(params)` | GET | `dapi/v1/income/asyn/id` | Get download link for transaction history |
+| `getDownloadIdForFuturesOrderHistory(params)` | GET | `dapi/v1/order/asyn` | Get download ID for order history |
+| `getFuturesOrderHistoryDownloadLink(params)` | GET | `dapi/v1/order/asyn/id` | Get download link for order history |
+| `getDownloadIdForFuturesTradeHistory(params)` | GET | `dapi/v1/trade/asyn` | Get download ID for trade history |
+| `getFuturesTradeHistoryDownloadLink(params)` | GET | `dapi/v1/trade/asyn/id` | Get download link for trade history |
+
+---
+
+## Portfolio Margin (Classic)
+
+| Method | HTTP | Endpoint | Description |
+|---|---|---|---|
+| `getClassicPortfolioMarginAccount(params)` | GET | `dapi/v1/pmAccountInfo` | Classic Portfolio Margin account info |
+| `getClassicPortfolioMarginNotionalLimits(params?)` | GET | `dapi/v1/pmExchangeInfo` | Classic PM notional limits *(deprecated)* |
+
+---
+
+## Full Usage Example
+
+```typescript
+import { CoinMClient } from 'binance';
+
+const client = new CoinMClient({
+  api_key: process.env.BINANCE_API_KEY,
+  api_secret: process.env.BINANCE_API_SECRET,
+});
+
+async function main() {
+  // Account balances
+  const balances = await client.getBalance();
+  const btcBalance = balances.find((b) => b.asset === 'BTC');
+  console.log('BTC available:', btcBalance?.availableBalance);
+
+  // Full account info
+  const account = await client.getAccountInformation();
+  console.log('Total unrealised PnL:', account.totalUnrealizedProfit);
+
+  // Leverage and margin setup
+  await client.setLeverage({ symbol: 'BTCUSD_PERP', leverage: 5 });
+  await client.setMarginType({ symbol: 'BTCUSD_PERP', marginType: 'CROSSED' });
+
+  // Current positions
+  const positions = await client.getPositions({ pair: 'BTCUSD' });
+  console.log('BTCUSD positions:', positions.length);
+
+  // Income history
+  const pnl = await client.getIncomeHistory({
+    symbol: 'BTCUSD_PERP',
+    incomeType: 'REALIZED_PNL',
+    limit: 10,
+  });
+  console.log('Last PnL entry:', pnl[0]?.income);
+}
+
+main();
+```
+
+<Tip>
+  COIN-M contracts use **contract quantity** (number of contracts), not asset quantity, when placing orders. One BTC quarterly contract typically represents 100 USD worth of BTC; check `getExchangeInfo()` for the exact contract multiplier per symbol.
+</Tip>

@@ -1,0 +1,260 @@
+---
+title: "PortfolioClient REST API Method Reference"
+sidebarTitle: "PortfolioClient"
+description: "Complete method reference for PortfolioClient (Binance Portfolio Margin), covering unified account management, UM/CM/Margin order types, and position queries."
+---
+
+`PortfolioClient` provides typed access to the Binance **Portfolio Margin** REST API (`papi/v1`, `papi/v2`). Portfolio Margin unifies USD-M Futures (UM), COIN-M Futures (CM), and Margin positions under a single cross-margin account, enabling higher capital efficiency through shared collateral. All authenticated endpoints require API credentials with Portfolio Margin permissions enabled.
+
+<Note>
+  The complete endpoint-to-function mapping for `PortfolioClient` is available in the [endpointFunctionList reference](https://github.com/tiagosiebler/binance/blob/master/docs/endpointFunctionList.md) on GitHub.
+</Note>
+
+## Installation & Instantiation
+
+```typescript
+import { PortfolioClient } from 'binance';
+
+const client = new PortfolioClient({
+  api_key: process.env.BINANCE_API_KEY,
+  api_secret: process.env.BINANCE_API_SECRET,
+});
+```
+
+---
+
+## Account
+
+| Method | HTTP | Endpoint | Description |
+|---|---|---|---|
+| `testConnectivity()` | GET | `papi/v1/ping` | Test server connectivity |
+| `getBalance(params?)` | GET | `papi/v1/balance` | Portfolio Margin account balance per asset |
+| `getAccountInfo()` | GET | `papi/v1/account` | Full Portfolio Margin account information |
+| `getMarginMaxBorrow(params)` | GET | `papi/v1/margin/maxBorrowable` | Maximum borrowable amount for an asset |
+| `getMarginMaxWithdraw(params)` | GET | `papi/v1/margin/maxWithdraw` | Maximum withdrawable amount for an asset |
+| `getUMAccount()` | GET | `papi/v1/um/account` | UM (USD-M) account assets and positions |
+| `getUMAccountV2()` | GET | `papi/v2/um/account` | UM account info (v2) |
+| `getCMAccount()` | GET | `papi/v1/cm/account` | CM (COIN-M) account assets and positions |
+| `getUMAccountConfig()` | GET | `papi/v1/um/accountConfig` | UM account configuration |
+| `getUMSymbolConfig(params?)` | GET | `papi/v1/um/symbolConfig` | UM symbol configuration |
+| `getAutoRepayFuturesStatus()` | GET | `papi/v1/repay-futures-switch` | Auto-repay futures status |
+| `updateAutoRepayFuturesStatus(params)` | POST | `papi/v1/repay-futures-switch` | Toggle auto-repay futures |
+| `repayFuturesNegativeBalance()` | POST | `papi/v1/repay-futures-negative-balance` | Repay a futures negative balance |
+| `autoCollectFunds()` | POST | `papi/v1/auto-collection` | Collect assets to Portfolio Margin account |
+| `transferAssetFuturesMargin(params)` | POST | `papi/v1/asset-collection` | Transfer an asset to the futures margin wallet |
+| `transferBNB(params)` | POST | `papi/v1/bnb-transfer` | Transfer BNB between UM and Portfolio |
+| `signTradFiPerpsContract()` | POST | `papi/v1/um/stock/contract` | Sign TradFi Perps agreement |
+
+---
+
+## UM Orders (USD-M under Portfolio)
+
+| Method | HTTP | Endpoint | Description |
+|---|---|---|---|
+| `submitNewUMOrder(params)` | POST | `papi/v1/um/order` | Place a new UM futures order |
+| `submitNewUMAlgoOrder(params)` | POST | `papi/v1/um/algo/order` | Place a new UM algo (conditional) order |
+| `modifyUMOrder(params)` | PUT | `papi/v1/um/order` | Modify an existing UM order |
+| `cancelUMOrder(params)` | DELETE | `papi/v1/um/order` | Cancel a specific UM order |
+| `cancelAllUMOrders(params)` | DELETE | `papi/v1/um/allOpenOrders` | Cancel all open UM orders for a symbol |
+| `cancelUMAlgoOrder(params)` | DELETE | `papi/v1/um/algo/order` | Cancel a specific UM algo order |
+| `cancelAllUMAlgoOpenOrders(params)` | DELETE | `papi/v1/um/algo/allOpenOrders` | Cancel all UM algo open orders |
+| `getUMOrder(params)` | GET | `papi/v1/um/order` | Query a specific UM order |
+| `getAllUMOrders(params)` | GET | `papi/v1/um/allOrders` | All UM orders (open, cancelled, filled) |
+| `getUMOpenOrder(params)` | GET | `papi/v1/um/openOrder` | Query a specific open UM order |
+| `getAllUMOpenOrders(params)` | GET | `papi/v1/um/openOrders` | All open UM orders |
+| `getUMAlgoOrder(params)` | GET | `papi/v1/um/algo/algoOrder` | Query a specific UM algo order |
+| `getUMAlgoOpenOrders(params?)` | GET | `papi/v1/um/algo/openAlgoOrders` | All open UM algo orders |
+| `getAllUMAlgoOrders(params)` | GET | `papi/v1/um/algo/allAlgoOrders` | All UM algo orders (historical) |
+| `getUMForceOrders(params)` | GET | `papi/v1/um/forceOrders` | UM forced liquidation orders |
+| `getUMOrderModificationHistory(params)` | GET | `papi/v1/um/orderAmendment` | UM order modification history |
+| `getUMTrades(params)` | GET | `papi/v1/um/userTrades` | UM trade list |
+| `getUMADLQuantile(params)` | GET | `papi/v1/um/adlQuantile` | UM ADL quantile estimation |
+| `getUMFeeBurnStatus()` | GET | `papi/v1/um/feeBurn` | UM fee burn (BNB discount) status |
+| `toggleUMFeeBurn(params)` | POST | `papi/v1/um/feeBurn` | Toggle UM fee burn status |
+
+### Code Example — UM Orders
+
+```typescript
+import { PortfolioClient } from 'binance';
+
+const client = new PortfolioClient({
+  api_key: process.env.BINANCE_API_KEY,
+  api_secret: process.env.BINANCE_API_SECRET,
+});
+
+// Place a UM LIMIT order
+const order = await client.submitNewUMOrder({
+  symbol: 'BTCUSDT',
+  side: 'BUY',
+  type: 'LIMIT',
+  timeInForce: 'GTC',
+  quantity: '0.01',
+  price: '50000',
+});
+console.log('UM Order ID:', order.orderId);
+
+// Cancel it
+await client.cancelUMOrder({
+  symbol: 'BTCUSDT',
+  orderId: order.orderId,
+});
+```
+
+---
+
+## CM Orders (COIN-M under Portfolio)
+
+| Method | HTTP | Endpoint | Description |
+|---|---|---|---|
+| `submitNewCMOrder(params)` | POST | `papi/v1/cm/order` | Place a new CM futures order |
+| `submitNewCMConditionalOrder(params)` | POST | `papi/v1/cm/conditional/order` | Place a new CM conditional order |
+| `modifyCMOrder(params)` | PUT | `papi/v1/cm/order` | Modify an existing CM order |
+| `cancelCMOrder(params)` | DELETE | `papi/v1/cm/order` | Cancel a specific CM order |
+| `cancelAllCMOrders(params)` | DELETE | `papi/v1/cm/allOpenOrders` | Cancel all open CM orders |
+| `cancelCMConditionalOrder(params)` | DELETE | `papi/v1/cm/conditional/order` | Cancel a specific CM conditional order |
+| `cancelAllCMConditionalOrders(params)` | DELETE | `papi/v1/cm/conditional/allOpenOrders` | Cancel all CM conditional orders |
+| `getCMOrder(params)` | GET | `papi/v1/cm/order` | Query a specific CM order |
+| `getAllCMOrders(params)` | GET | `papi/v1/cm/allOrders` | All CM orders (open, cancelled, filled) |
+| `getCMOpenOrder(params)` | GET | `papi/v1/cm/openOrder` | Query a specific open CM order |
+| `getAllCMOpenOrders(params)` | GET | `papi/v1/cm/openOrders` | All open CM orders |
+| `getCMOpenConditionalOrders(params)` | GET | `papi/v1/cm/conditional/openOrders` | All open CM conditional orders |
+| `getCMOpenConditionalOrder(params)` | GET | `papi/v1/cm/conditional/openOrder` | Query a single CM conditional order |
+| `getAllCMConditionalOrders(params)` | GET | `papi/v1/cm/conditional/allOrders` | All CM conditional orders |
+| `getCMConditionalOrderHistory(params)` | GET | `papi/v1/cm/conditional/orderHistory` | CM conditional order history |
+| `getCMForceOrders(params)` | GET | `papi/v1/cm/forceOrders` | CM forced liquidation orders |
+| `getCMOrderModificationHistory(params)` | GET | `papi/v1/cm/orderAmendment` | CM order modification history |
+| `getCMTrades(params)` | GET | `papi/v1/cm/userTrades` | CM trade list |
+| `getCMADLQuantile(params)` | GET | `papi/v1/cm/adlQuantile` | CM ADL quantile estimation |
+
+---
+
+## Margin Orders
+
+| Method | HTTP | Endpoint | Description |
+|---|---|---|---|
+| `submitNewMarginOrder(params)` | POST | `papi/v1/margin/order` | Place a new margin order |
+| `submitNewMarginOCO(params)` | POST | `papi/v1/margin/order/oco` | Place a margin OCO order |
+| `submitMarginLoan(params)` | POST | `papi/v1/marginLoan` | Borrow margin assets |
+| `submitMarginRepay(params)` | POST | `papi/v1/repayLoan` | Repay margin loan |
+| `repayMarginDebt(params)` | POST | `papi/v1/margin/repay-debt` | Repay margin debt |
+| `cancelMarginOrder(params)` | DELETE | `papi/v1/margin/order` | Cancel a margin order |
+| `cancelMarginOCO(params)` | DELETE | `papi/v1/margin/orderList` | Cancel a margin OCO order list |
+| `cancelAllMarginOrders(params)` | DELETE | `papi/v1/margin/allOpenOrders` | Cancel all open margin orders |
+| `getMarginOrder(params)` | GET | `papi/v1/margin/order` | Query a specific margin order |
+| `getMarginOpenOrders(params)` | GET | `papi/v1/margin/openOrders` | All open margin orders |
+| `getAllMarginOrders(params)` | GET | `papi/v1/margin/allOrders` | All margin orders |
+| `getMarginOCO(params)` | GET | `papi/v1/margin/orderList` | Query a specific margin OCO |
+| `getAllMarginOCO(params)` | GET | `papi/v1/margin/allOrderList` | All margin OCO order lists |
+| `getMarginOpenOCO()` | GET | `papi/v1/margin/openOrderList` | All open margin OCO order lists |
+| `getMarginForceOrders(params)` | GET | `papi/v1/margin/forceOrders` | Margin forced liquidation records |
+| `getMarginTrades(params)` | GET | `papi/v1/margin/myTrades` | Margin trade list |
+| `getMarginLoanRecords(params)` | GET | `papi/v1/margin/marginLoan` | Margin loan records |
+| `getMarginRepayRecords(params)` | GET | `papi/v1/margin/repayLoan` | Margin repay records |
+| `getMarginInterestHistory(params?)` | GET | `papi/v1/margin/marginInterestHistory` | Margin interest history |
+
+---
+
+## Position & Leverage
+
+| Method | HTTP | Endpoint | Description |
+|---|---|---|---|
+| `getUMPosition(params?)` | GET | `papi/v1/um/positionRisk` | UM open positions |
+| `getCMPosition(params?)` | GET | `papi/v1/cm/positionRisk` | CM open positions |
+| `updateUMLeverage(params)` | POST | `papi/v1/um/leverage` | Set leverage for a UM symbol |
+| `updateCMLeverage(params)` | POST | `papi/v1/cm/leverage` | Set leverage for a CM symbol |
+| `updateUMPositionMode(params)` | POST | `papi/v1/um/positionSide/dual` | Toggle UM Hedge Mode |
+| `updateCMPositionMode(params)` | POST | `papi/v1/cm/positionSide/dual` | Toggle CM Hedge Mode |
+| `getUMPositionMode()` | GET | `papi/v1/um/positionSide/dual` | Query UM position mode |
+| `getCMPositionMode()` | GET | `papi/v1/cm/positionSide/dual` | Query CM position mode |
+| `getUMLeverageBrackets(params?)` | GET | `papi/v1/um/leverageBracket` | UM leverage brackets |
+| `getCMLeverageBrackets(params?)` | GET | `papi/v1/cm/leverageBracket` | CM leverage brackets |
+| `getUMCommissionRate(params)` | GET | `papi/v1/um/commissionRate` | UM maker/taker commission rates |
+| `getCMCommissionRate(params)` | GET | `papi/v1/cm/commissionRate` | CM maker/taker commission rates |
+| `getUMTradingStatus(params?)` | GET | `papi/v1/um/apiTradingStatus` | UM API trading status / rules indicators |
+
+---
+
+## Income & History
+
+| Method | HTTP | Endpoint | Description |
+|---|---|---|---|
+| `getUMIncomeHistory(params?)` | GET | `papi/v1/um/income` | UM income history (PnL, funding, etc.) |
+| `getCMIncomeHistory(params?)` | GET | `papi/v1/cm/income` | CM income history |
+| `getPortfolioNegativeBalanceInterestHistory(params?)` | GET | `papi/v1/portfolio/interest-history` | Negative balance interest history |
+| `getUMTradeHistoryDownloadId(params)` | GET | `papi/v1/um/trade/asyn` | Get download ID for UM trade history |
+| `getUMTradeDownloadLink(params)` | GET | `papi/v1/um/trade/asyn/id` | Get download link for UM trade history |
+| `getUMOrderHistoryDownloadId(params)` | GET | `papi/v1/um/order/asyn` | Get download ID for UM order history |
+| `getUMOrderDownloadLink(params)` | GET | `papi/v1/um/order/asyn/id` | Get download link for UM order history |
+| `getUMTransactionHistoryDownloadId(params)` | GET | `papi/v1/um/income/asyn` | Get download ID for UM transaction history |
+| `getUMTransactionDownloadLink(params)` | GET | `papi/v1/um/income/asyn/id` | Get download link for UM transaction history |
+
+---
+
+## User Data Stream
+
+| Method | HTTP | Endpoint | Description |
+|---|---|---|---|
+| `getPMUserDataListenKey()` | POST | `papi/v1/listenKey` | Start a Portfolio Margin user data stream |
+
+---
+
+## Full Usage Example
+
+```typescript
+import { PortfolioClient } from 'binance';
+
+const client = new PortfolioClient({
+  api_key: process.env.BINANCE_API_KEY,
+  api_secret: process.env.BINANCE_API_SECRET,
+});
+
+async function main() {
+  // --- Account overview ---
+  const account = await client.getAccountInfo();
+  console.log('uniMMR:', account.uniMMR); // Unified Maintenance Margin Ratio
+
+  const balances = await client.getBalance();
+  console.log('Account balances:', balances.length, 'assets');
+
+  // --- UM positions ---
+  const umPositions = await client.getUMPosition({ symbol: 'BTCUSDT' });
+  console.log('BTC UM position:', umPositions[0]?.positionAmt);
+
+  // --- Set leverage ---
+  await client.updateUMLeverage({ symbol: 'BTCUSDT', leverage: 10 });
+
+  // --- Place a UM order ---
+  const order = await client.submitNewUMOrder({
+    symbol: 'BTCUSDT',
+    side: 'BUY',
+    type: 'MARKET',
+    quantity: '0.001',
+  });
+  console.log('UM Order status:', order.status);
+
+  // --- Place a Margin order ---
+  const marginOrder = await client.submitNewMarginOrder({
+    symbol: 'ETHUSDT',
+    side: 'BUY',
+    type: 'LIMIT',
+    timeInForce: 'GTC',
+    quantity: '0.1',
+    price: '2000',
+  });
+  console.log('Margin Order ID:', marginOrder.orderId);
+
+  // --- UM income ---
+  const income = await client.getUMIncomeHistory({
+    symbol: 'BTCUSDT',
+    incomeType: 'REALIZED_PNL',
+    limit: 5,
+  });
+  console.log('Recent UM PnL:', income.map((i) => i.income));
+}
+
+main();
+```
+
+<Tip>
+  Portfolio Margin's **uniMMR** (Unified Maintenance Margin Ratio) is the key risk metric for the whole account. Monitor it via `getAccountInfo()`. If uniMMR drops below 1.0, the account may face liquidation across all sub-positions simultaneously.
+</Tip>

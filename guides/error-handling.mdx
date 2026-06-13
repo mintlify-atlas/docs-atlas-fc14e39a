@@ -1,0 +1,275 @@
+---
+title: "Handle Errors in the Binance SDK"
+sidebarTitle: "Error Handling"
+description: "Understand how the Binance SDK surfaces REST API errors, network failures, and WebSocket disconnections, with patterns for robust production error handling."
+---
+
+The Binance SDK distinguishes between two broad categories of failure: REST API errors returned by Binance's servers with a structured `{code, msg}` body, and lower-level network or connectivity failures that prevent a response from arriving at all. WebSocket clients introduce a third category — connection lifecycle events such as drops and reconnects — which require a different handling strategy from request/response errors. Understanding how the SDK surfaces each type, and what context it provides, lets you write recovery logic that is reliable in production.
+
+## REST API Error Structure
+
+When Binance returns an HTTP error status (anything outside 2xx), the SDK's internal `parseException` method throws a structured error object rather than the raw Axios error. That object contains everything you need to diagnose the problem:
+
+```typescript
+{
+  code: number;         // Binance error code, e.g. -1121 (invalid symbol)
+  message: string;      // Human-readable message from Binance, e.g. "Invalid symbol."
+  body: object;         // Full response body as parsed JSON
+  headers: object;      // Response headers (useful for rate-limit debugging)
+  requestUrl: string;   // The full URL that was called
+  requestBody: any;     // The serialised request body
+  requestOptions: object; // The client options used (api_key and api_secret are redacted)
+}
+```
+
+The SDK never logs your credentials in thrown errors — `api_key` and `api_secret` are explicitly set to `undefined` in `requestOptions` before the error is thrown.
+
+## Basic try/catch Pattern
+
+Wrap every REST call in a try/catch block. Access `error.code` and `error.message` to distinguish between error types and implement appropriate recovery:
+
+```typescript
+import { MainClient } from 'binance';
+
+const client = new MainClient({
+  api_key: process.env.BINANCE_API_KEY,
+  api_secret: process.env.BINANCE_API_SECRET,
+});
+
+async function placeOrder() {
+  try {
+    const result = await client.submitNewOrder({
+      symbol: 'BTCUSDT',
+      side: 'BUY',
+      type: 'LIMIT',
+      quantity: 0.001,
+      price: 10000,
+      timeInForce: 'GTC',
+    });
+    console.log('Order placed:', result);
+  } catch (error) {
+    // Binance API error (server responded with an error code)
+    if (error.code && error.message) {
+      console.error(`Binance error ${error.code}: ${error.message}`);
+      console.error('Request URL:', error.requestUrl);
+
+      // Act on specific error codes
+      if (error.code === -1121) {
+        console.error('Invalid symbol — check the symbol name.');
+      } else if (error.code === -2010) {
+        console.error('Insufficient balance.');
+      } else if (error.code === -1021) {
+        console.error('Timestamp outside recvWindow — check system clock.');
+      }
+    } else {
+      // Network error — no response received
+      console.error('Network error:', error.message || error);
+    }
+  }
+}
+```
+
+## Common Binance Error Codes
+
+<AccordionGroup>
+  <Accordion title="-1100 — Illegal characters in parameter">
+    A parameter contains characters Binance does not allow. Check that string fields such as `symbol` and `timeInForce` contain only permitted values.
+  </Accordion>
+  <Accordion title="-1121 — Invalid symbol">
+    The `symbol` value does not match any known trading pair. Verify the exact symbol string using `client.getExchangeInfo()`.
+  </Accordion>
+  <Accordion title="-1021 — Timestamp outside recvWindow">
+    The request timestamp is too far from the Binance server time. Either your system clock is drifting, or `recvWindow` is too tight. Enable time sync with `disableTimeSync: false`, or increase `recvWindow`.
+  </Accordion>
+  <Accordion title="-2010 — Insufficient balance">
+    The account does not have enough of the required asset to fill the order. Check the account balance before placing the order.
+  </Accordion>
+  <Accordion title="-1013 — Filter failure">
+    The order violates a price, quantity, or notional filter defined in exchange info for that symbol. Fetch `getExchangeInfo()` and validate against the returned filters before submitting.
+  </Accordion>
+  <Accordion title="-1003 — Too many requests / rate limited">
+    Your account or IP has exceeded Binance's request weight limits. Inspect the `x-mbx-used-weight-1m` header in `error.headers` and back off. Use `client.getRateLimitStates()` to monitor weight usage proactively.
+  </Accordion>
+</AccordionGroup>
+
+## Network Errors vs API Errors
+
+The SDK's `parseException` method differentiates between three failure modes:
+
+<Steps>
+  <Step title="No request sent">
+    Axios failed to construct the request (e.g. invalid URL). The SDK throws the raw error `message` string.
+  </Step>
+  <Step title="Request sent, no response">
+    A request was sent but no response arrived (e.g. DNS failure, connection refused, timeout). The SDK re-throws the full Axios error object. These errors do **not** have a `code` property from Binance — check `error.request` to confirm.
+  </Step>
+  <Step title="Response received with error status">
+    Binance returned an error status code. The SDK throws the structured object described above with `code`, `message`, `body`, and `headers`.
+  </Step>
+</Steps>
+
+Distinguish between them in your handler:
+
+```typescript
+try {
+  await client.getAccountInformation();
+} catch (error) {
+  if (error.code !== undefined && error.message !== undefined) {
+    // Structured Binance API error
+    console.error(`API error ${error.code}: ${error.message}`);
+  } else if (error.request) {
+    // Request sent but no response — likely a network issue
+    console.error('No response received — network or timeout issue');
+  } else {
+    // Something else (request setup failure, unexpected throw)
+    console.error('Unexpected error:', error);
+  }
+}
+```
+
+## Returning Errors Instead of Throwing
+
+By default (`parseExceptions: true`), the SDK throws on every non-2xx response. Setting `parseExceptions: false` makes the SDK re-throw the **raw Axios error** instead, bypassing the structured error wrapper. This is useful only if you need to inspect the raw Axios error shape directly:
+
+<Warning>
+  Setting `parseExceptions: false` means you lose the convenient `error.code` and `error.message` properties from the structured error object. You will need to access `error.response.data.code` and `error.response.data.msg` from the Axios error directly. This mode is not recommended unless you have a specific reason to bypass the default error processing.
+</Warning>
+
+```typescript
+import { MainClient } from 'binance';
+
+const client = new MainClient({
+  api_key: process.env.BINANCE_API_KEY,
+  api_secret: process.env.BINANCE_API_SECRET,
+  parseExceptions: false, // raw Axios error is thrown
+});
+
+try {
+  await client.submitNewOrder({ /* ... */ });
+} catch (axiosError) {
+  // Access raw Axios error properties
+  const binanceCode = axiosError.response?.data?.code;
+  const binanceMsg = axiosError.response?.data?.msg;
+  console.error(`Raw error ${binanceCode}: ${binanceMsg}`);
+}
+```
+
+## WebSocket Error Events
+
+The `WebsocketClient` is event-driven. Errors and connection lifecycle changes are emitted as named events rather than thrown. Always attach handlers before subscribing to any streams:
+
+```typescript
+import { WebsocketClient, WS_KEY_MAP } from 'binance';
+
+const ws = new WebsocketClient({
+  api_key: process.env.BINANCE_API_KEY,
+  api_secret: process.env.BINANCE_API_SECRET,
+  beautify: true,
+});
+
+// Connection errors and unexpected conditions
+ws.on('exception', (error) => {
+  console.error('WebSocket exception:', error);
+});
+
+// Connection dropped and attempting to reconnect
+ws.on('reconnecting', ({ wsKey }) => {
+  console.warn(`WebSocket reconnecting: ${wsKey}`);
+  // Pause order activity that depends on this stream
+});
+
+// Connection restored and subscriptions re-established
+ws.on('reconnected', ({ wsKey }) => {
+  console.info(`WebSocket reconnected: ${wsKey}`);
+  // Re-sync state via REST API to catch any missed events
+});
+
+// Connection closed (no reconnect planned)
+ws.on('close', ({ wsKey }) => {
+  console.warn(`WebSocket closed: ${wsKey}`);
+});
+
+ws.subscribe(['btcusdt@trade'], WS_KEY_MAP.main);
+```
+
+### Reconnection Behaviour
+
+The SDK handles reconnection automatically — it detects silent disconnections through its heartbeat mechanism, then re-establishes the connection and resubscribes to cached topics. What the SDK does **not** do is backfill any market or account events that arrived while the socket was down.
+
+<CardGroup cols={2}>
+  <Card title="SDK handles automatically" icon="check">
+    Detecting silent disconnections via ping/pong heartbeat, re-establishing the connection, resubscribing to previously subscribed topics, and refreshing listen keys for user data streams.
+  </Card>
+  <Card title="You must handle" icon="triangle-exclamation">
+    Reconciling account state (positions, orders, fills, balances) via REST API after a reconnect. Any events missed during the downtime will not be replayed.
+  </Card>
+</CardGroup>
+
+A robust reconnect handler queries the REST API for current state before resuming trading logic:
+
+```typescript
+import { WebsocketClient, USDMClient } from 'binance';
+
+const restClient = new USDMClient({
+  api_key: process.env.BINANCE_API_KEY,
+  api_secret: process.env.BINANCE_API_SECRET,
+});
+
+const ws = new WebsocketClient({
+  api_key: process.env.BINANCE_API_KEY,
+  api_secret: process.env.BINANCE_API_SECRET,
+  beautify: true,
+});
+
+ws.on('reconnecting', ({ wsKey }) => {
+  console.warn(`[${wsKey}] Reconnecting — pausing order actions`);
+  // signal your order management logic to pause
+});
+
+ws.on('reconnected', async ({ wsKey }) => {
+  console.info(`[${wsKey}] Reconnected — reconciling state`);
+  try {
+    const positions = await restClient.getPositions({ symbol: 'BTCUSDT' });
+    const openOrders = await restClient.getAllOpenOrders({ symbol: 'BTCUSDT' });
+    console.info('Reconciled positions:', positions.length);
+    console.info('Reconciled open orders:', openOrders.length);
+    // resume order actions
+  } catch (err) {
+    console.error('Failed to reconcile state after reconnect:', err);
+  }
+});
+
+ws.on('exception', console.error);
+
+await ws.subscribeUsdFuturesUserDataStream();
+```
+
+## Logging Errors with DefaultLogger
+
+When `WebsocketClient` logs errors internally, it uses the `DefaultLogger`. You can replace it to route errors to your own monitoring stack:
+
+```typescript
+import { DefaultLogger, WebsocketClient } from 'binance';
+
+const customLogger: typeof DefaultLogger = {
+  ...DefaultLogger,
+  trace: () => {}, // suppress noisy heartbeat logs
+  info: (...params) => console.info(new Date().toISOString(), ...params),
+  error: (...params) => {
+    console.error(new Date().toISOString(), ...params);
+    // Forward to your error tracking service here
+  },
+};
+
+const ws = new WebsocketClient(
+  {
+    api_key: process.env.BINANCE_API_KEY,
+    api_secret: process.env.BINANCE_API_SECRET,
+  },
+  customLogger,
+);
+```
+
+<Note>
+  The `DefaultLogger` does not expose a `warn` method — only `trace`, `info`, and `error`. If your logger implementation requires a `warn` level, you can add it to your custom logger object without affecting the SDK's internal calls.
+</Note>

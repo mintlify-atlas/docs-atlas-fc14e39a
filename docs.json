@@ -1,72 +1,98 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mintlify Starter Kit",
+  "name": "Binance Node.js SDK",
+  "theme": "luma",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#0d152d",
+    "light": "#848c94",
+    "dark": "#c9cacf"
   },
-  "favicon": "/favicon.svg",
-  "navigation": {
-    "pages": [
-      {
-        "group": "Getting Started",
-        "pages": [
-          "index",
-          "quickstart"
-        ]
-      }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
+  "favicon": "https://media.brand.dev/9af7ca08-5ac3-49fd-9432-5a2e6574303c.svg",
   "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "light": "https://media.brand.dev/74afcedb-15a5-48fa-81f6-92d9c570adc6.svg",
+    "dark": "https://media.brand.dev/1964742a-4107-4ee0-b925-4e79b3624e89.svg"
   },
   "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
     "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://app.mintlify.com"
+      "type": "github",
+      "href": "https://github.com/tiagosiebler/binance"
     }
-  },
-  "contextual": {
-    "options": [
-      "copy",
-      "view",
-      "chatgpt",
-      "claude",
-      "perplexity",
-      "mcp",
-      "cursor",
-      "vscode"
-    ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "github": "https://github.com/tiagosiebler/binance"
     }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "authentication"
+            ]
+          },
+          {
+            "group": "REST Clients",
+            "pages": [
+              "rest/main-client",
+              "rest/usdm-client",
+              "rest/coinm-client",
+              "rest/portfolio-client"
+            ]
+          },
+          {
+            "group": "WebSockets",
+            "pages": [
+              "websockets/websocket-client",
+              "websockets/websocket-api-client",
+              "websockets/user-data-streams"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/configuration",
+              "guides/error-handling",
+              "guides/testnet-demo-trading",
+              "guides/browser-usage",
+              "guides/market-maker"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "REST API",
+            "pages": [
+              "api-reference/main-client",
+              "api-reference/usdm-client",
+              "api-reference/coinm-client",
+              "api-reference/portfolio-client"
+            ]
+          },
+          {
+            "group": "WebSocket API",
+            "pages": [
+              "api-reference/websocket-client",
+              "api-reference/websocket-api-client"
+            ]
+          },
+          {
+            "group": "Types & Utilities",
+            "pages": [
+              "api-reference/types-overview",
+              "api-reference/type-guards"
+            ]
+          }
+        ]
+      }
+    ]
   }
 }

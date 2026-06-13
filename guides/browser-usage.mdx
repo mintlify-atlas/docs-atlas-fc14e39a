@@ -1,0 +1,186 @@
+---
+title: "Use the Binance SDK in a Browser"
+sidebarTitle: "Browser Usage"
+description: "Import the Binance SDK in browser and frontend environments using the pre-built webpack bundle or by bundling it yourself with webpack or another build tool."
+---
+
+The Binance SDK is primarily designed for Node.js, but it can also run in browser environments. The SDK uses `isomorphic-ws` for WebSocket support, which means WebSocket connections work natively in both Node.js and browsers without any polyfill. For REST API calls the picture is more nuanced — most authenticated endpoints are not usable directly from a browser, but public market data endpoints work fine, and you can proxy private calls through a backend server.
+
+## Two Approaches
+
+<Tabs>
+  <Tab title="Pre-built Bundle">
+    The SDK ships a pre-built UMD bundle in the `dist/` directory. This bundle is compiled with webpack and is ready to drop into a `<script>` tag or import in a browser environment without needing a build step.
+
+    ```html
+    <!-- Load the pre-built bundle -->
+    <script src="node_modules/binance/dist/binanceapi.js"></script>
+    <script>
+      const { MainClient } = binanceapi;
+
+      const client = new MainClient();
+
+      client.getSymbolPriceTicker({ symbol: 'BTCUSDT' })
+        .then(ticker => console.log('BTC price:', ticker.price))
+        .catch(console.error);
+    </script>
+    ```
+
+    The pre-built bundle exposes all SDK exports under the `binanceapi` global variable, as configured by the webpack `library` setting.
+  </Tab>
+  <Tab title="Build with webpack">
+    If you already have a webpack build pipeline, you can bundle the SDK yourself using the provided webpack configuration as a starting point. This gives you full control over tree-shaking, source maps, and target environments.
+
+    The SDK's webpack config is located at `webpack/webpack.config.js`:
+
+    ```javascript
+    // webpack/webpack.config.js (from the SDK source)
+    const webpack = require('webpack');
+    const path = require('path');
+
+    function generateConfig(name) {
+      return {
+        entry: './lib/index.js',
+        output: {
+          path: path.resolve(__dirname, '../dist'),
+          filename: name + '.js',
+          library: 'binanceapi',
+          libraryTarget: 'umd',
+        },
+        devtool: 'source-map',
+        mode: 'production',
+        resolve: {
+          extensions: ['.webpack.js', '.web.js', '.ts', '.tsx', '.js'],
+          alias: {
+            // Swap Node.js-specific helpers for browser-compatible equivalents
+            [path.resolve(__dirname, '../lib/util/node-support.js')]:
+              path.resolve(__dirname, '../lib/util/browser-support.js'),
+          },
+          fallback: {
+            // Node.js core modules excluded from browser builds
+            // keepAlive (https.Agent) is Node.js-only and won't work in browsers
+            'http': false,
+            'https': false,
+          },
+        },
+        // ...module rules
+      };
+    }
+
+    module.exports = generateConfig('binanceapi');
+    ```
+
+    Key points from the config:
+    - `node-support.js` is aliased to `browser-support.js` so Node.js-specific utilities are swapped out.
+    - The `http` and `https` Node.js core modules are explicitly set to `false` — this means `keepAlive` (`https.Agent`) is silently skipped in browser builds.
+    - The output is a UMD bundle that works in both `<script>` tags and CommonJS/AMD environments.
+  </Tab>
+  <Tab title="ESM (Modern Bundlers)">
+    If you are using a modern bundler like Vite, Rollup, or esbuild with an ESM project, you can import directly from the package:
+
+    ```typescript
+    import { MainClient, WebsocketClient, WS_KEY_MAP } from 'binance';
+
+    const ws = new WebsocketClient({ beautify: true });
+
+    ws.on('formattedMessage', (data) => {
+      console.log('market data:', data);
+    });
+
+    ws.subscribe(['btcusdt@trade', 'btcusdt@bookTicker'], WS_KEY_MAP.main);
+    ```
+
+    You may need to configure your bundler to handle Node.js built-in polyfills or exclusions, similar to the webpack `fallback` configuration above. The key modules to exclude are `http` and `https`.
+  </Tab>
+</Tabs>
+
+## CORS and Authenticated REST Calls
+
+<Warning>
+  **Never expose your Binance API keys in frontend code.** API keys embedded in browser JavaScript are publicly visible to anyone who inspects your page source. Anyone with your keys can trade on your account, drain balances, or trigger withdrawals (if withdrawal permission is enabled).
+</Warning>
+
+Binance does **not** support browser-based authenticated REST calls for most endpoints. Even if you were willing to expose your API keys (which you should not be), Binance's servers do not send the necessary CORS headers to allow cross-origin authenticated requests from browser origins.
+
+<Note>
+  For private REST API calls — account data, order placement, balance queries, and anything else that requires authentication — you must route requests through a backend proxy server that holds the API keys server-side. The browser sends requests to your own backend, your backend adds the API key and signature, and your backend forwards the request to Binance.
+</Note>
+
+A simple proxy approach:
+
+```
+Browser  →  Your Backend (Node.js)  →  Binance REST API
+                    ↑
+             Holds API keys securely
+```
+
+Your backend can use this same SDK with full authentication, while your frontend only calls your own API endpoints.
+
+## What Does Work in the Browser
+
+While authenticated REST calls should go through a backend proxy, the following scenarios work directly from a browser:
+
+<CardGroup cols={2}>
+  <Card title="Public market data (REST)" icon="chart-bar">
+    Unauthenticated REST calls — price tickers, order books, exchange info, candlesticks, and other public endpoints — work from a browser if Binance sends CORS headers for those endpoints.
+  </Card>
+  <Card title="WebSocket streams" icon="bolt">
+    All public WebSocket market data streams work from a browser. The SDK uses `isomorphic-ws`, which uses the browser's native `WebSocket` API automatically. Private user data WebSocket streams are also possible if you obtain a listen key via your backend proxy.
+  </Card>
+</CardGroup>
+
+### Browser WebSocket Example
+
+```typescript
+import { WebsocketClient, WS_KEY_MAP } from 'binance';
+
+const ws = new WebsocketClient({
+  beautify: true,
+});
+
+ws.on('open', ({ wsKey, wsUrl }) => {
+  console.log('Connected:', wsKey, wsUrl);
+});
+
+ws.on('formattedMessage', (data) => {
+  // Real-time trade updates
+  console.log('Trade update:', data);
+});
+
+ws.on('exception', console.error);
+ws.on('reconnecting', ({ wsKey }) => console.warn('Reconnecting:', wsKey));
+ws.on('reconnected', ({ wsKey }) => console.info('Reconnected:', wsKey));
+
+// Subscribe to public streams — no API key needed
+ws.subscribe(
+  ['btcusdt@trade', 'btcusdt@bookTicker', 'btcusdt@kline_1m'],
+  WS_KEY_MAP.main,
+);
+```
+
+## Node.js Features Unavailable in Browsers
+
+The webpack bundle automatically handles the most important differences between Node.js and browser environments, but be aware of the following limitations when targeting browsers:
+
+<AccordionGroup>
+  <Accordion title="keepAlive / https.Agent">
+    The `keepAlive` and `keepAliveMsecs` options in `RestClientOptions` use Node.js's `https.Agent`, which is not available in browsers. The webpack config sets `https: false` as a fallback, so these options are silently ignored in browser builds. Browser connection pooling is handled natively by the browser itself.
+  </Accordion>
+  <Accordion title="Large integer precision">
+    Binance WebSocket events sometimes include very large integers (e.g. order IDs) that exceed JavaScript's `Number.MAX_SAFE_INTEGER`. In Node.js you can use BigInt or custom JSON parsers. In browsers, the same limitation applies. If precision matters, provide a `customParseJSONFn` that converts affected fields to strings.
+
+    ```typescript
+    const ws = new WebsocketClient({
+      customParseJSONFn: (rawEvent) => {
+        // Convert orderId values to strings to preserve precision
+        return JSON.parse(
+          rawEvent.replace(/"orderId":\s*(\d+)/g, '"orderId":"$1"')
+        );
+      },
+    });
+    ```
+  </Accordion>
+  <Accordion title="Environment variables">
+    `process.env` is not available in browser environments. Use your bundler's environment variable injection (e.g. `import.meta.env` in Vite, or `DefinePlugin` in webpack) to inject configuration at build time — but only for non-secret values. Never inject API keys at build time.
+  </Accordion>
+</AccordionGroup>

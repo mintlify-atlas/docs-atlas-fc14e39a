@@ -1,0 +1,132 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "Binance Node.js SDK",
+  "projectDescription": "Professional Node.js & TypeScript SDK for Binance REST APIs and WebSockets, covering Spot, Margin, USD-M Futures, COIN-M Futures, Portfolio Margin, and WebSocket API with full type safety.",
+  "theme": "luma",
+  "primaryColor": "#0d152d",
+  "lightColor": "#848c94",
+  "darkColor": "#c9cacf",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "authentication"
+            ]
+          },
+          {
+            "group": "REST Clients",
+            "pages": [
+              "rest/main-client",
+              "rest/usdm-client",
+              "rest/coinm-client",
+              "rest/portfolio-client"
+            ]
+          },
+          {
+            "group": "WebSockets",
+            "pages": [
+              "websockets/websocket-client",
+              "websockets/websocket-api-client",
+              "websockets/user-data-streams"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/configuration",
+              "guides/error-handling",
+              "guides/testnet-demo-trading",
+              "guides/browser-usage",
+              "guides/market-maker"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "REST API",
+            "pages": [
+              "api-reference/main-client",
+              "api-reference/usdm-client",
+              "api-reference/coinm-client",
+              "api-reference/portfolio-client"
+            ]
+          },
+          {
+            "group": "WebSocket API",
+            "pages": [
+              "api-reference/websocket-client",
+              "api-reference/websocket-api-client"
+            ]
+          },
+          {
+            "group": "Types & Utilities",
+            "pages": [
+              "api-reference/types-overview",
+              "api-reference/type-guards"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Four dedicated REST clients: MainClient (Spot/Margin/Wallet), USDMClient (USD-M Futures), CoinMClient (COIN-M Futures), PortfolioClient (Portfolio Margin)",
+    "Unified WebsocketClient supporting all product groups with automatic reconnection and heartbeat management",
+    "WebsocketAPIClient providing a promise/async-await interface over the WebSocket API",
+    "Full TypeScript support with strongly typed requests and responses for all endpoints",
+    "Support for all authentication mechanisms: HMAC, RSA, and Ed25519 (auto-detected from secret format)",
+    "Smart WebSocket persistence with automatic reconnection, listenKey renewal, and reconnected event emission",
+    "Optional response beautification: converts abbreviated keys to descriptive names and number strings to numbers",
+    "Demo trading and testnet environment support via simple constructor options",
+    "Browser/frontend support via webpack bundle in dist/",
+    "Proxy support via axios integration"
+  ],
+  "publicApiSurface": [
+    "MainClient",
+    "USDMClient",
+    "CoinMClient",
+    "PortfolioClient",
+    "WebsocketClient",
+    "WebsocketAPIClient",
+    "RestClientOptions",
+    "WSClientConfigurableOptions",
+    "WebsocketClient.subscribe(topics, wsKey)",
+    "WebsocketClient.unsubscribe(topics, wsKey)",
+    "WebsocketClient.subscribeSpotUserDataStream()",
+    "WebsocketClient.subscribeCrossMarginUserDataStream()",
+    "WebsocketClient.subscribeUsdFuturesUserDataStream()",
+    "WebsocketClient.subscribeCoinFuturesUserDataStream()",
+    "WebsocketClient.subscribePortfolioMarginUserDataStream()",
+    "WebsocketClient.subscribeAggregateTrades(symbol, market)",
+    "WebsocketClient.subscribeKlines(symbol, interval, market)",
+    "WebsocketClient.subscribeMarkPrice(symbol, market)",
+    "WebsocketClient.on('message' | 'formattedMessage' | 'formattedUserDataMessage' | 'open' | 'reconnected' | 'reconnecting' | 'error' | 'response')",
+    "MainClient.testConnectivity()",
+    "MainClient.getExchangeInfo()",
+    "MainClient.submitNewOrder(params)",
+    "MainClient.getOrder(params)",
+    "MainClient.cancelOrder(params)",
+    "MainClient.getAccountInformation()",
+    "MainClient.get24hrChangeStatistics(params)",
+    "USDMClient.getExchangeInfo()",
+    "USDMClient.submitNewOrder(params)",
+    "USDMClient.setLeverage(params)",
+    "USDMClient.getPositionInformation()",
+    "CoinMClient.submitNewOrder(params)",
+    "PortfolioClient.getAccountInformation()",
+    "DefaultLogger",
+    "isWsFormattedKline()",
+    "isWsFormatted24hrTicker()",
+    "isWsFormattedMarkPriceUpdateEvent()",
+    "isWsFormattedTrade()"
+  ]
+}
