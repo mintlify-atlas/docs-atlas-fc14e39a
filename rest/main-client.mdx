@@ -1,7 +1,7 @@
 ---
-title: "MainClient: Spot, Margin & Wallet REST API"
+title: "MainClient: Spot, Margin & Wallet REST API Reference"
 sidebarTitle: "MainClient"
-description: "MainClient covers Binance Spot, Cross/Isolated Margin, Wallet, Convert, Earn, Sub-accounts, Auto-Invest, Staking, Mining, and Loans via the REST API."
+description: "MainClient covers Binance Spot, Cross/Isolated Margin, Wallet, Convert, Earn, Sub-accounts, Auto-Invest, Staking, Mining, and Loans via REST API."
 ---
 
 `MainClient` is the primary REST client for Binance's core product suite. It targets the `api*.binance.com` family of subdomains and provides typed methods for Spot trading, Cross and Isolated Margin, Wallet operations, Convert, Simple Earn, Auto-Invest, Dual Investment, Staking, Mining, Crypto Loans, VIP Loans, NFTs, C2C, sub-account management, and more. If you are working with Spot or Margin markets — or any non-futures product — `MainClient` is the class you need.
@@ -131,11 +131,11 @@ Authenticated endpoints — require `api_key` and `api_secret`.
 | Method | Endpoint | Description |
 |---|---|---|
 | `getCrossMarginCollateralRatio()` | `GET sapi/v1/margin/crossMarginCollateralRatio` | Cross-margin collateral ratios |
-| `getMarginAccountDetails(params?)` | `GET sapi/v1/margin/account` | Cross-margin account details |
+| `queryCrossMarginAccountDetails()` | `GET sapi/v1/margin/account` | Cross-margin account details |
 | `submitMarginAccountBorrowRepay(params)` | `POST sapi/v1/margin/borrow-repay` | Borrow or repay margin assets |
 | `getMarginAccountBorrowRepayRecords(params)` | `GET sapi/v1/margin/borrow-repay` | Borrow/repay history |
-| `submitNewMarginOrder(params)` | `POST sapi/v1/margin/order` | Place a margin order |
-| `cancelMarginOrder(params)` | `DELETE sapi/v1/margin/order` | Cancel a margin order |
+| `marginAccountNewOrder(params)` | `POST sapi/v1/margin/order` | Place a margin order |
+| `marginAccountCancelOrder(params)` | `DELETE sapi/v1/margin/order` | Cancel a margin order |
 | `getIsolatedMarginAccountInfo(params?)` | `GET sapi/v1/margin/isolated/account` | Isolated margin account details |
 
 ## Code Examples

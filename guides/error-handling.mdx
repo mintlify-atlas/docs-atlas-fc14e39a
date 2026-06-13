@@ -1,7 +1,7 @@
 ---
-title: "Handle Errors in the Binance SDK"
+title: "Handle REST and WebSocket Errors in the Binance SDK"
 sidebarTitle: "Error Handling"
-description: "Understand how the Binance SDK surfaces REST API errors, network failures, and WebSocket disconnections, with patterns for robust production error handling."
+description: "Understand how the Binance SDK surfaces REST API errors, network failures, and WebSocket events, with try/catch patterns and common Binance error codes."
 ---
 
 The Binance SDK distinguishes between two broad categories of failure: REST API errors returned by Binance's servers with a structured `{code, msg}` body, and lower-level network or connectivity failures that prevent a response from arriving at all. WebSocket clients introduce a third category — connection lifecycle events such as drops and reconnects — which require a different handling strategy from request/response errors. Understanding how the SDK surfaces each type, and what context it provides, lets you write recovery logic that is reliable in production.
@@ -158,6 +158,10 @@ try {
 
 The `WebsocketClient` is event-driven. Errors and connection lifecycle changes are emitted as named events rather than thrown. Always attach handlers before subscribing to any streams:
 
+<Note>
+  The `'error'` event is **deprecated** and should not be used — it caused unhandled promise rejections when no listener was attached. Use the `'exception'` event instead, which carries the same information without that side effect.
+</Note>
+
 ```typescript
 import { WebsocketClient, WS_KEY_MAP } from 'binance';
 
@@ -167,7 +171,7 @@ const ws = new WebsocketClient({
   beautify: true,
 });
 
-// Connection errors and unexpected conditions
+// Connection errors and unexpected conditions (replaces deprecated 'error' event)
 ws.on('exception', (error) => {
   console.error('WebSocket exception:', error);
 });

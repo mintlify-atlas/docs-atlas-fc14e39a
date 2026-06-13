@@ -1,7 +1,7 @@
 ---
-title: "Market Maker Endpoints in the Binance SDK"
+title: "Access Binance Futures Market Maker Subdomain Endpoints"
 sidebarTitle: "Market Maker"
-description: "Access Binance's market maker subdomain endpoints using the useMMSubdomain option, available to qualified Futures Liquidity Provider Program participants."
+description: "Enable Binance's low-latency market maker subdomains with useMMSubdomain: true. Covers eligibility, supported clients, and production best practices."
 ---
 
 Binance provides dedicated market maker subdomains for qualified futures traders who participate in the Binance Futures Liquidity Provider Program. These endpoints are hosted on separate infrastructure from the standard public API and are designed to offer improved latency for high-frequency trading workflows. The Binance SDK exposes market maker endpoints through a single constructor option that can be set on both REST and WebSocket clients.

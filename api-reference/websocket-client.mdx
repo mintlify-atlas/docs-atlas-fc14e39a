@@ -120,6 +120,13 @@ User data stream methods manage authenticated private streams for order updates,
 | `subscribeCoinFuturesUserDataStream()` | Fetch a COIN-M Futures listen key and subscribe to the COIN-M user data stream. |
 | `unsubscribeCoinFuturesUserDataStream()` | Unsubscribe from the COIN-M Futures user data stream. |
 
+### Margin Risk User Data
+
+| Method | Description |
+|---|---|
+| `subscribeMarginRiskUserDataStream()` | Fetch a Margin Risk listen key and subscribe to the Margin Risk user data stream (risk monitoring). |
+| `unsubscribeMarginRiskUserDataStream()` | Unsubscribe from the Margin Risk user data stream. |
+
 ### Portfolio Margin User Data
 
 | Method | Description |
@@ -197,10 +204,6 @@ wsClient.subscribePartialBookDepths('BTCUSDT', 5, 100, 'spot');
 | `response` | `any & { wsKey, isWSAPIResponse? }` | Confirmation response to a WebSocket subscribe/unsubscribe command or a WS API call. |
 | `exception` | `any & { wsKey }` | An error or unhandled exception from the WebSocket client or an event handler. |
 
-<Warning>
-  The `error` event is deprecated. Use `exception` instead. The legacy `error` event could cause unhandled promise rejections if no listener was attached.
-</Warning>
-
 ```typescript
 import { WebsocketClient } from 'binance';
 import {
@@ -262,18 +265,31 @@ A `WsKey` is a string literal that identifies which underlying WebSocket connect
 | `'main'` | Spot, Cross Margin, Isolated Margin | Primary Spot/Margin connection. Handles both public streams and user data. |
 | `'main2'` | Spot, Cross Margin, Isolated Margin | Alternative Spot connection (same product group as `main`). |
 | `'main3'` | Spot, Cross Margin | Market data only — user data is not supported on this key. |
+| `'mainWSAPI'` | Spot WS API | WebSocket API connection for Spot/Margin order management. |
+| `'mainWSAPI2'` | Spot WS API | Alternative WebSocket API connection for Spot/Margin. |
+| `'mainWSAPITestnet'` | Spot WS API Testnet | WebSocket API testnet connection for Spot/Margin. |
+| `'marginRiskUserData'` | Margin Risk | Margin risk user data stream (risk monitoring). |
+| `'marginUserData'` | Margin User Data | Margin user data stream via WS API listen-key mechanism. |
 | `'usdm'` | USD-M Futures | Primary USD-M Futures connection. Auto-routes topics to split sub-keys. |
 | `'usdmPublic'` | USD-M Futures | High-frequency public data: book ticker and depth. |
 | `'usdmMarket'` | USD-M Futures | All other USD-M market data streams. |
 | `'usdmPrivate'` | USD-M Futures | USD-M user data stream only. |
+| `'usdmTestnet'` | USD-M Futures Testnet | USD-M Futures testnet connection. |
+| `'usdmTestnetPublic'` | USD-M Futures Testnet | USD-M Futures testnet high-frequency public data. |
+| `'usdmTestnetPrivate'` | USD-M Futures Testnet | USD-M Futures testnet user data stream. |
+| `'usdmTestnetMarket'` | USD-M Futures Testnet | USD-M Futures testnet other market data. |
+| `'usdmWSAPI'` | USD-M Futures WS API | WebSocket API connection for USD-M Futures order management. |
+| `'usdmWSAPITestnet'` | USD-M Futures WS API Testnet | WebSocket API testnet for USD-M Futures. |
 | `'coinm'` | COIN-M Futures | Primary COIN-M Futures connection. |
+| `'coinm2'` | COIN-M Futures | Alternative COIN-M Futures connection (requires listen key). |
+| `'coinmTestnet'` | COIN-M Futures Testnet | COIN-M Futures testnet connection. |
+| `'coinmWSAPI'` | COIN-M Futures WS API | WebSocket API connection for COIN-M Futures order management. |
+| `'coinmWSAPITestnet'` | COIN-M Futures WS API Testnet | WebSocket API testnet for COIN-M Futures. |
 | `'eoptions'` | European Options | Binance European Options market data and user data. |
 | `'portfolioMarginUserData'` | Portfolio Margin | Portfolio Margin user data stream. |
 | `'portfolioMarginProUserData'` | Portfolio Margin Pro | Portfolio Margin Pro user data stream. |
 | `'mainTestnetPublic'` | Spot Testnet | Public Spot testnet streams. Set `testnet: true` or use this key directly. |
 | `'mainTestnetUserData'` | Spot Testnet | Spot testnet user data. |
-| `'usdmTestnet'` | USD-M Futures Testnet | USD-M Futures testnet connection. |
-| `'coinmTestnet'` | COIN-M Futures Testnet | COIN-M Futures testnet connection. |
 | `'alpha'` | Alpha Trading | Binance Alpha trading WebSocket market data. |
 
 <Tip>

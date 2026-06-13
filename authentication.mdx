@@ -1,7 +1,7 @@
 ---
-title: "Authenticate with the Binance SDK"
+title: "Binance SDK Authentication: HMAC, RSA, and Ed25519"
 sidebarTitle: "Authentication"
-description: "Configure HMAC, RSA, or Ed25519 authentication for the Binance SDK. Learn how to create API keys, set permissions, and pass credentials to any REST or WebSocket client."
+description: "Set up HMAC, RSA, or Ed25519 keys for the Binance SDK. Learn auto-detection, credential best practices, and how to pass keys to REST and WebSocket clients."
 ---
 
 The `binance` SDK supports all three authentication mechanisms available on Binance: HMAC (shared secret), RSA (asymmetric key pair), and Ed25519 (asymmetric key pair, recommended for WebSocket API). All three are configured through the same constructor fields — `api_key` and `api_secret` — and the SDK auto-detects the key type based on the format of `api_secret`. Private endpoints are signed automatically; you never need to compute signatures or manage timestamps manually.
@@ -177,16 +177,20 @@ For RSA and Ed25519 private keys stored as environment variables, the multi-line
 
 ## Passing credentials to REST clients
 
-All four REST clients accept the same `RestClientOptions` shape:
+All four REST clients accept the same `RestClientOptions` shape. The most commonly used fields are:
 
 ```typescript
 interface RestClientOptions {
-  api_key?: string;        // Binance API key
-  api_secret?: string;     // HMAC secret, RSA PEM private key, or Ed25519 PEM private key
-  recvWindow?: number;     // Max request timestamp window in ms (default: Binance default)
-  beautifyResponses?: boolean; // Parse known float-strings to numbers (default: false)
-  testnet?: boolean;       // Use testnet endpoints (default: false)
-  demoTrading?: boolean;   // Use demo trading endpoints (default: false)
+  api_key?: string;              // Binance API key
+  api_secret?: string;           // HMAC secret, RSA PEM private key, or Ed25519 PEM private key
+  recvWindow?: number;           // Max request timestamp window in ms (default: 5000)
+  beautifyResponses?: boolean;   // Parse known float-strings to numbers (default: false)
+  testnet?: boolean;             // Use testnet endpoints (default: false)
+  demoTrading?: boolean;         // Use Binance demo trading endpoints (default: false)
+  useMMSubdomain?: boolean;      // Use market maker endpoints for eligible futures users (default: false)
+  baseUrl?: string;              // Override the API base URL (e.g. 'https://api2.binance.com')
+  filterUndefinedParams?: boolean; // Strip undefined values from request params (default: false)
+  // Additional options: strictParamValidation, syncIntervalMs, disableTimeSync, parseExceptions, etc.
 }
 ```
 

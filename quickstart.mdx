@@ -1,7 +1,7 @@
 ---
-title: "Get Started with the Binance SDK"
+title: "Binance SDK Quickstart: Install, Connect, and Trade"
 sidebarTitle: "Quickstart"
-description: "Install the binance npm package, create your first REST client, and make a live API call to Binance in under 5 minutes."
+description: "Install the binance npm package, fetch live Spot market data, authenticate, place a test order, and subscribe to a WebSocket stream in under 5 minutes."
 ---
 
 The `binance` SDK is designed to get you to a working integration as quickly as possible. Public market data requires no API keys at all — you can make your first live call immediately after installation. This guide walks from install through a public REST call, an authenticated private call, and a live WebSocket stream subscription.
@@ -311,7 +311,7 @@ The `WebsocketClient` manages all WebSocket connections — heartbeats, reconnec
 <Tabs>
   <Tab title="TypeScript">
     ```typescript
-    import { WebsocketClient } from 'binance';
+    import { WebsocketClient, WS_KEY_MAP } from 'binance';
 
     const wsClient = new WebsocketClient({
       // Optional: enable beautified events via the 'formattedMessage' event
@@ -346,16 +346,16 @@ The `WebsocketClient` manages all WebSocket connections — heartbeats, reconnec
       console.error('WebSocket error:', data?.wsKey);
     });
 
-    // Subscribe to Spot market topics (route to 'main')
+    // Subscribe to Spot market topics — WS_KEY_MAP.main routes to the Spot/Margin stream endpoint
     wsClient.subscribe(
       ['btcusdt@trade', 'btcusdt@bookTicker', 'btcusdt@depth10@100ms'],
-      'main',
+      WS_KEY_MAP.main,
     );
     ```
   </Tab>
   <Tab title="JavaScript">
     ```javascript
-    const { WebsocketClient } = require('binance');
+    const { WebsocketClient, WS_KEY_MAP } = require('binance');
 
     const wsClient = new WebsocketClient({ beautify: true });
 
@@ -377,16 +377,16 @@ The `WebsocketClient` manages all WebSocket connections — heartbeats, reconnec
       console.error('WebSocket error:', data?.wsKey);
     });
 
-    // Subscribe Spot topics to the 'main' connection family
+    // Subscribe Spot topics — WS_KEY_MAP.main routes to the Spot/Margin stream endpoint
     wsClient.subscribe(
       ['btcusdt@trade', 'btcusdt@bookTicker', 'btcusdt@depth10@100ms'],
-      'main',
+      WS_KEY_MAP.main,
     );
     ```
   </Tab>
 </Tabs>
 
-The second argument to `subscribe()` is a `WS_KEY_MAP` value that routes the connection to the correct Binance endpoint family. Use `'main'` for Spot and Margin, `'usdm'` / `'usdmMarket'` for USD-M Futures, and `'coinm'` for COIN-M Futures.
+The second argument to `subscribe()` is a `WS_KEY_MAP` key that routes the connection to the correct Binance endpoint family. Use `WS_KEY_MAP.main` for Spot and Margin, `WS_KEY_MAP.usdm` (auto-routed alias) or `WS_KEY_MAP.usdmMarket` / `WS_KEY_MAP.usdmPublic` for USD-M Futures, and `WS_KEY_MAP.coinm` for COIN-M Futures. Import `WS_KEY_MAP` from `'binance'`.
 
 </Steps>
 

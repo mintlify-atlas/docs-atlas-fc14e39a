@@ -1,7 +1,7 @@
 ---
-title: "Use the Binance SDK in a Browser"
+title: "Using the Binance Node.js SDK in Browser Environments"
 sidebarTitle: "Browser Usage"
-description: "Import the Binance SDK in browser and frontend environments using the pre-built webpack bundle or by bundling it yourself with webpack or another build tool."
+description: "Run the Binance SDK in a browser via the pre-built UMD bundle or your own webpack pipeline. Understand CORS limits and why API keys must stay server-side."
 ---
 
 The Binance SDK is primarily designed for Node.js, but it can also run in browser environments. The SDK uses `isomorphic-ws` for WebSocket support, which means WebSocket connections work natively in both Node.js and browsers without any polyfill. For REST API calls the picture is more nuanced — most authenticated endpoints are not usable directly from a browser, but public market data endpoints work fine, and you can proxy private calls through a backend server.

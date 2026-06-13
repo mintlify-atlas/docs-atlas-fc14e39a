@@ -1,7 +1,7 @@
 ---
-title: "Binance Node.js SDK: REST & WebSocket API Client"
+title: "Binance Node.js SDK: REST and WebSocket API Clients"
 sidebarTitle: "Introduction"
-description: "The binance npm package provides typed REST and WebSocket clients for every Binance product group, with auto-reconnection, HMAC/RSA/Ed25519 auth, and optional response beautification."
+description: "Production-ready Node.js SDK for Binance REST and WebSocket APIs. Covers Spot, Futures, Portfolio Margin, and WebSocket API with TypeScript types included."
 ---
 
 The `binance` npm package is a professional, production-grade Node.js and TypeScript SDK for the full Binance API surface. It handles request building, authentication, timestamp synchronization, WebSocket lifecycle management, and response parsing — so your code can stay focused on the trading logic you're building. Whether you need Spot market data, authenticated Futures orders, or a persistent WebSocket stream, every Binance product group is covered by a dedicated, strongly typed client.
@@ -37,8 +37,8 @@ Binance exposes multiple distinct API families, each with its own endpoint prefi
   <Card title="Demo & testnet support" icon="flask">
     Switch to Binance demo trading (real market data, simulated fills) or testnet with a single constructor option.
   </Card>
-  <Card title="Browser bundle included" icon="globe">
-    A pre-built `dist/` bundle ships with the package for frontend and webpack-based projects.
+  <Card title="Browser bundle support" icon="globe">
+    A webpack config is included to build a browser bundle. See the README for frontend usage instructions.
   </Card>
 </CardGroup>
 
@@ -58,16 +58,21 @@ The package supports both ESM `import` and CommonJS `require()` out of the box.
 
 ```typescript
 import {
-  MainClient,       // Spot, Margin, Wallet, Convert, Earn, Sub-accounts
-  USDMClient,       // USD-M Futures
-  CoinMClient,      // COIN-M Futures
-  PortfolioClient,  // Portfolio Margin
-  WebsocketClient,  // Streaming subscriptions (public + user data)
-  WebsocketAPIClient, // Promise-based WebSocket API commands
+  MainClient,           // Spot, Margin, Wallet, Convert, Earn, Sub-accounts
+  USDMClient,           // USD-M Futures
+  CoinMClient,          // COIN-M Futures
+  PortfolioClient,      // Portfolio Margin
+  WebsocketClient,      // Streaming subscriptions (public + user data)
+  WebsocketAPIClient,   // Promise-based WebSocket API commands
+  WebsocketClientLegacy, // Legacy WebSocket client (older connection model)
 } from 'binance';
 ```
 
-All six classes accept the same `{ api_key, api_secret }` constructor shape. Public market data endpoints work without credentials — just omit the keys.
+All six primary clients accept the same `{ api_key, api_secret }` constructor shape. Public market data endpoints work without credentials — just omit the keys. `WebsocketClientLegacy` is also exported for projects that depend on the older WebSocket connection model.
+
+<Note>
+  New projects should use `WebsocketClient` rather than `WebsocketClientLegacy`. The legacy client is retained for backward compatibility.
+</Note>
 
 <Note>
   API credentials are scoped per environment. Live, demo trading, Spot testnet, and Futures testnet credentials are separate. Never mix them in the same client instance.

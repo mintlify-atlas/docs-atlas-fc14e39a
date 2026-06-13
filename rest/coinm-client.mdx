@@ -1,5 +1,5 @@
 ---
-title: "CoinMClient: COIN-M Futures REST API"
+title: "CoinMClient: Binance COIN-M Futures REST API Reference"
 sidebarTitle: "CoinMClient"
 description: "CoinMClient provides access to Binance COIN-M Futures (dapi*.binance.com), with contracts settled in the underlying cryptocurrency rather than USDT."
 ---
@@ -59,6 +59,10 @@ const client = new CoinMClient(
   Routes requests to `https://testnet.binancefuture.com` (COIN-M testnet). Uses simulated market data.
 </ParamField>
 
+<ParamField body="demoTrading" type="boolean" default="false">
+  Routes requests to `https://demo-dapi.binance.com`. Uses **real market data** with simulated order execution — the preferred option for testing COIN-M strategies.
+</ParamField>
+
 ## COIN-M vs USD-M Key Differences
 
 <Tabs>
@@ -86,6 +90,7 @@ const client = new CoinMClient(
 |------|----------|
 | Production | `https://dapi.binance.com` |
 | Testnet | `https://testnet.binancefuture.com` |
+| Demo Trading | `https://demo-dapi.binance.com` |
 
 ## Method Categories
 
@@ -146,7 +151,7 @@ Authenticated endpoints — require `api_key` and `api_secret`.
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `getPositionInformation(params?)` | `GET dapi/v1/positionRisk` | Current open positions |
+| `getPositions(params?)` | `GET dapi/v1/positionRisk` | Current open positions |
 | `setLeverage(params)` | `POST dapi/v1/leverage` | Set leverage for a symbol |
 | `setMarginType(params)` | `POST dapi/v1/marginType` | Switch ISOLATED / CROSSED margin |
 | `setIsolatedPositionMargin(params)` | `POST dapi/v1/positionMargin` | Adjust isolated margin |
@@ -154,7 +159,7 @@ Authenticated endpoints — require `api_key` and `api_secret`.
 | `getCurrentPositionMode()` | `GET dapi/v1/positionSide/dual` | Query current position mode |
 | `getPositionMarginChangeHistory(params)` | `GET dapi/v1/positionMargin/history` | Margin change history |
 | `getADLQuantileEstimation(params?)` | `GET dapi/v1/adlQuantile` | ADL quantile estimation |
-| `getNotionalAndLeverageBrackets(params?)` | `GET dapi/v1/leverageBracket` | Notional and leverage brackets |
+| `getNotionalAndLeverageBrackets(params?)` | `GET dapi/v2/leverageBracket` | Notional and leverage brackets |
 
 ### Account
 
@@ -165,8 +170,8 @@ Authenticated endpoints — require `api_key` and `api_secret`.
 | `getAccountTrades(params)` | `GET dapi/v1/userTrades` | Trade history |
 | `getIncomeHistory(params?)` | `GET dapi/v1/income` | Income history (funding, P&L, commission) |
 | `getAccountCommissionRate(params)` | `GET dapi/v1/commissionRate` | Commission rates for a symbol |
-| `getDownloadIdForTransactionHistory(params)` | `GET dapi/v1/income/asyn` | Request income history download |
-| `getDownloadLinkForTransactionHistory(params)` | `GET dapi/v1/income/asyn/id` | Retrieve download link |
+| `getDownloadIdForFuturesTransactionHistory(params)` | `GET dapi/v1/income/asyn` | Request income history download ID |
+| `getFuturesTransactionHistoryDownloadLink(params)` | `GET dapi/v1/income/asyn/id` | Retrieve income history download link |
 
 ## Code Examples
 
@@ -225,7 +230,7 @@ async function tradeCoinM() {
   console.log('Order:', order.orderId, order.status);
 
   // Query position — P&L is in BTC
-  const positions = await client.getPositionInformation({ symbol: 'BTCUSD_PERP' });
+  const positions = await client.getPositions({ symbol: 'BTCUSD_PERP' });
   console.log('Position:', positions[0]?.positionAmt, 'BTC notional');
 }
 
@@ -268,12 +273,23 @@ COIN-M symbols follow a different convention from Spot and USD-M Futures:
   The `pair` parameter (e.g. `BTCUSD`) can be used in some COIN-M endpoints instead of `symbol` to retrieve data for all contracts on a given underlying asset simultaneously.
 </Info>
 
-## Testnet Support
+## Testing Environments
 
-COIN-M Futures testnet is available at `https://testnet.binancefuture.com`. Pass `testnet: true` in the constructor to route all requests there. Note that COIN-M Demo Trading is not currently available — the testnet is the only sandbox environment for COIN-M.
+COIN-M Futures supports two sandbox environments:
+
+- **Demo Trading** (`demoTrading: true`) — uses real market data with simulated order fills at `https://demo-dapi.binance.com`. Recommended for strategy testing.
+- **Testnet** (`testnet: true`) — uses simulated market data at `https://testnet.binancefuture.com`. Suitable for SDK integration tests.
 
 ```typescript
-const client = new CoinMClient({
+// Demo Trading (recommended for strategy validation)
+const demoClient = new CoinMClient({
+  api_key: 'YOUR_DEMO_API_KEY',
+  api_secret: 'YOUR_DEMO_API_SECRET',
+  demoTrading: true,
+});
+
+// Testnet (for SDK integration tests)
+const testnetClient = new CoinMClient({
   api_key: 'YOUR_TESTNET_KEY',
   api_secret: 'YOUR_TESTNET_SECRET',
   testnet: true,

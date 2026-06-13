@@ -1,7 +1,7 @@
 ---
-title: "PortfolioClient: Portfolio Margin REST API"
+title: "PortfolioClient: Binance Portfolio Margin REST API"
 sidebarTitle: "PortfolioClient"
-description: "PortfolioClient covers Binance Portfolio Margin — a unified account that combines Spot, USD-M Futures, and COIN-M Futures margin under a single cross-margin calculation."
+description: "PortfolioClient covers Binance Portfolio Margin — a unified account combining Spot, USD-M Futures, and COIN-M Futures under one cross-margin calculation."
 ---
 
 `PortfolioClient` is the REST client for Binance's Portfolio Margin programme — a unified margin model that combines Spot (cross-margin), USD-M Futures (UM), and COIN-M Futures (CM) positions into a single account. Under Portfolio Margin, margin requirements are calculated across all three product groups simultaneously, allowing positions to offset each other and potentially reducing overall margin consumption. All Portfolio Margin API calls target the `papi` base URL key and route through `papi.binance.com`.
@@ -65,6 +65,10 @@ const client = new PortfolioClient(
 
 <ParamField body="testnet" type="boolean" default="false">
   Routes requests to the Binance testnet environment when available. Portfolio Margin endpoints use the `papi` base URL key.
+</ParamField>
+
+<ParamField body="demoTrading" type="boolean" default="false">
+  Routes requests to Binance's Demo Trading environment. Uses **real market data** with simulated order execution — the preferred option for testing Portfolio Margin strategies.
 </ParamField>
 
 ## Base URL

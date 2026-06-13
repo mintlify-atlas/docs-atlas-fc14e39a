@@ -1,7 +1,7 @@
 ---
-title: "User Data Streams: Account & Order Updates"
+title: "User Data Streams: Real-Time Binance Account Events"
 sidebarTitle: "User Data Streams"
-description: "Subscribe to private Binance user data streams to receive real-time account balance updates, order fills, and position changes across all product groups."
+description: "Subscribe to private Binance user data streams for real-time account balance updates, order fills, and position changes across all product groups."
 ---
 
 User data streams are private WebSocket connections that deliver real-time account-level events: order fills and updates, balance changes, position adjustments, and margin calls. Unlike public market data streams, they require authentication and are specific to your account. The `WebsocketClient` exposes a dedicated subscribe method for each product group, and once connected the SDK handles everything else — listenKey creation, periodic refresh, reconnection, and re-subscription.
@@ -19,11 +19,12 @@ Each method opens a dedicated WebSocket connection for the corresponding product
 | `subscribeSpotUserDataStream()` | Spot (deprecated for new integrations — prefer `WebsocketAPIClient.subscribeUserDataStream()`) | Account position updates, order execution reports, balance updates |
 | `subscribeCrossMarginUserDataStream()` | Cross Margin | Margin account updates, order fills, balance deltas |
 | `subscribeIsolatedMarginUserDataStream(symbol)` | Isolated Margin | Per-symbol isolated margin account and order events |
+| `subscribeMarginRiskUserDataStream()` | Margin Risk | Margin risk data events (liquidation warnings, risk notifications) |
 | `subscribeUsdFuturesUserDataStream()` | USD-M Futures | Position changes, order updates, account balance updates, margin calls |
 | `subscribeCoinFuturesUserDataStream()` | COIN-M Futures | Position changes, order updates, account balance updates |
 | `subscribePortfolioMarginUserDataStream()` | Portfolio Margin | Portfolio margin account events |
 
-Corresponding `unsubscribe*` methods (`unsubscribeSpotUserDataStream()`, `unsubscribeUsdFuturesUserDataStream()`, etc.) cleanly close the dedicated connection and stop the listenKey keepalive cycle.
+Corresponding `unsubscribe*` methods (`unsubscribeSpotUserDataStream()`, `unsubscribeCrossMarginUserDataStream()`, `unsubscribeIsolatedMarginUserDataStream(symbol)`, `unsubscribeMarginRiskUserDataStream()`, `unsubscribeUsdFuturesUserDataStream()`, `unsubscribeCoinFuturesUserDataStream()`, `unsubscribePortfolioMarginUserDataStream()`) cleanly close the dedicated connection and stop the listenKey keepalive cycle.
 
 ## listenKey Lifecycle
 

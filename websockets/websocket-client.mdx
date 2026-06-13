@@ -1,7 +1,7 @@
 ---
-title: "WebsocketClient: Real-Time Binance Streams"
+title: "WebsocketClient: Binance Real-Time WebSocket Streams"
 sidebarTitle: "WebsocketClient"
-description: "WebsocketClient subscribes to Binance market data and user data streams across all product groups, with automatic reconnection, heartbeats, and optional event beautification."
+description: "WebsocketClient subscribes to Binance streams across Spot, Futures, and Options with auto-reconnect, heartbeats, and optional event beautification."
 ---
 
 `WebsocketClient` is the single entry point for all of Binance's real-time WebSocket streams. It multiplexes subscriptions across product groups — Spot, Margin, USD-M Futures, COIN-M Futures, European Options, Portfolio Margin, and Alpha — automatically managing connections, ping/pong heartbeats, 24-hour forced disconnects, and re-subscription after any network interruption. You subscribe with a topic string and a `wsKey` to target the correct connection; everything else is handled for you.
@@ -39,7 +39,10 @@ Every WebSocket connection in the SDK is identified by a `WsKey` string. When yo
 | `'usdm'` | USD-M Futures — auto-routes to `usdmPublic`/`usdmMarket`/`usdmPrivate` internally |
 | `'coinm'` | COIN-M Futures market data and user data |
 | `'eoptions'` | European Options market data |
-| `'portfolioMarginUserData'` | Portfolio Margin user data |
+| `'portfolioMarginUserData'` | Portfolio Margin user data stream |
+| `'portfolioMarginProUserData'` | Portfolio Margin Pro user data stream |
+| `'marginRiskUserData'` | Margin risk user data stream |
+| `'marginUserData'` | Margin user data stream (WebSocket API path) |
 | `'alpha'` | Binance Alpha market data |
 | `'mainWSAPI'` | Spot/Margin WebSocket API (for WS API commands) |
 | `'usdmWSAPI'` | USD-M Futures WebSocket API |
@@ -223,6 +226,7 @@ For convenience, the `WebsocketClient` exposes named helper methods that constru
     - `subscribeSpotPartialBookDepth(symbol, levels, speed)`
     - `subscribeSpotDiffBookDepth(symbol, speed)`
     - `subscribeCoinIndexPrice(symbol)`
+    - `subscribeMarginRiskUserDataStream(wsKey?)`
   </Card>
 </CardGroup>
 

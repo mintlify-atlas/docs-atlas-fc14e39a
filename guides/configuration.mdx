@@ -1,7 +1,7 @@
 ---
-title: "Configure the Binance SDK Clients"
+title: "Configuring Binance SDK REST and WebSocket Clients"
 sidebarTitle: "Configuration"
-description: "Learn every configuration option for REST and WebSocket clients in the Binance SDK, including timeouts, proxy, logging, beautification, and custom base URLs."
+description: "Explore every option for REST and WebSocket clients in the Binance SDK: timeouts, clock sync, logging, beautification, keep-alive, and custom base URLs."
 ---
 
 The Binance SDK exposes two sets of configuration options: `RestClientOptions` for the REST API clients (`MainClient`, `USDMClient`, `CoinMClient`, `PortfolioClient`) and `WSClientConfigurableOptions` for the `WebsocketClient`. Both share a number of environment-switching flags — `testnet`, `demoTrading`, and `useMMSubdomain` — but each also has options unique to its transport. Understanding what each option does and when to use it is the fastest way to get a production-grade integration off the ground.
@@ -41,7 +41,7 @@ const client = new MainClient({
 </ParamField>
 
 <ParamField path="disableTimeSync" type="boolean" default="true">
-  When `false`, the SDK automatically fetches the Binance server time and computes a clock drift offset, then applies that offset to every signed request timestamp. Set this to `false` if your system clock is unreliable or if you're running in an environment where small clock skew regularly triggers timestamp errors. The default is `true` (sync disabled) to avoid the extra round-trip on startup.
+  When `false`, the SDK fetches the Binance server time at startup, computes a clock drift offset, and applies it to every signed request timestamp. The default is `true` (time sync disabled). Binance recommends keeping your server clock accurate with an NTP service rather than relying on SDK-side sync — enabling this option adds a round-trip on startup and is not recommended unless you cannot control your system time.
 </ParamField>
 
 <ParamField path="syncIntervalMs" type="number | string" default="3600000">

@@ -1,5 +1,5 @@
 ---
-title: "WebsocketAPIClient: Async WebSocket API Requests"
+title: "WebsocketAPIClient: Promise-Based Binance WebSocket API"
 sidebarTitle: "WebsocketAPIClient"
 description: "WebsocketAPIClient wraps the Binance WebSocket API with a promise-based interface, letting you call WebSocket API methods just like REST endpoints."
 ---
@@ -63,6 +63,7 @@ const wsClient = new WebsocketAPIClient(options?, logger?);
 | `getSpotOrderBook(params)` | Order book depth snapshot |
 | `getSpotRecentTrades(params)` | Recent trades list |
 | `getSpotHistoricalTrades(params)` | Older trades (requires API key) |
+| `getSpotHistoricalBlockTrades(params)` | Historical block trades |
 | `getSpotAggregateTrades(params)` | Compressed/aggregate trade list |
 | `getSpotKlines(params)` | Kline/candlestick data |
 | `getSpotUIKlines(params)` | UI-adjusted kline data |
@@ -150,6 +151,9 @@ Futures methods accept a `market` parameter (`'usdm'` or `'coinm'`) to route the
 |---|---|
 | `subscribeUserDataStream(wsKey)` | Start a user data stream session over the WebSocket API |
 | `unsubscribeUserDataStream(wsKey)` | Stop the user data stream session |
+| `startUserDataStreamForKey(params, wsKey?)` | Start a listenKey-based user data stream (legacy; deprecated for Spot) |
+| `pingUserDataStreamForKey(params, wsKey?)` | Keep alive a listenKey-based user data stream |
+| `stopUserDataStreamForKey(params, wsKey?)` | Close a listenKey-based user data stream |
 
 ## Code Examples
 
